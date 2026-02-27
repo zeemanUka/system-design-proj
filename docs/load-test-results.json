@@ -1,0 +1,103 @@
+{
+  "generatedAt": "2026-02-27T23:05:28.845Z",
+  "baseUrl": "http://localhost:3001",
+  "totalRequests": 16,
+  "concurrency": 4,
+  "setup": {
+    "projectId": "d827d65f-c4d9-40d3-9b72-0b348bfdfceb",
+    "baselineVersionId": "cd1ebc7c-1950-417e-a9f4-787ea480c4e9",
+    "candidateVersionId": "584cfdd6-b45f-45d3-a592-861d25bfa1b0"
+  },
+  "suites": [
+    {
+      "name": "GET /scenarios",
+      "totalRequests": 16,
+      "concurrency": 4,
+      "successCount": 16,
+      "failureCount": 0,
+      "durationMs": 31.38,
+      "throughputRps": 509.83,
+      "latencyMs": {
+        "min": 0,
+        "p50": 4.32,
+        "p95": 22.54,
+        "max": 22.54
+      },
+      "statusCounts": {
+        "200": 16
+      }
+    },
+    {
+      "name": "GET /projects/:id/history",
+      "totalRequests": 16,
+      "concurrency": 4,
+      "successCount": 16,
+      "failureCount": 0,
+      "durationMs": 29.26,
+      "throughputRps": 546.82,
+      "latencyMs": {
+        "min": 0,
+        "p50": 5.66,
+        "p95": 9.49,
+        "max": 9.49
+      },
+      "statusCounts": {
+        "200": 16
+      }
+    },
+    {
+      "name": "GET /projects/:id/compare",
+      "totalRequests": 16,
+      "concurrency": 4,
+      "successCount": 16,
+      "failureCount": 0,
+      "durationMs": 59.25,
+      "throughputRps": 270.05,
+      "latencyMs": {
+        "min": 0,
+        "p50": 8.92,
+        "p95": 44.08,
+        "max": 44.08
+      },
+      "statusCounts": {
+        "200": 16
+      }
+    },
+    {
+      "name": "POST /versions/:id/simulate (enqueue throughput)",
+      "totalRequests": 16,
+      "concurrency": 4,
+      "successCount": 16,
+      "failureCount": 0,
+      "durationMs": 55.83,
+      "throughputRps": 286.58,
+      "latencyMs": {
+        "min": 0,
+        "p50": 12.1,
+        "p95": 20.48,
+        "max": 20.48
+      },
+      "statusCounts": {
+        "201": 16
+      }
+    },
+    {
+      "name": "POST /versions/:id/grade (enqueue throughput)",
+      "totalRequests": 16,
+      "concurrency": 4,
+      "successCount": 16,
+      "failureCount": 0,
+      "durationMs": 51.29,
+      "throughputRps": 311.96,
+      "latencyMs": {
+        "min": 0,
+        "p50": 12.18,
+        "p95": 15.43,
+        "max": 15.43
+      },
+      "statusCounts": {
+        "201": 16
+      }
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "name": "system-design-coach",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "lint": "npm -ws --if-present run lint",
+    "typecheck": "npm -ws --if-present run typecheck",
+    "test": "npm -ws --if-present run test",
+    "build": "npm -ws --if-present run build",
+    "dev:api": "npm --workspace @sdc/api run dev",
+    "dev:web": "npm --workspace @sdc/web run dev",
+    "dev:simulation-worker": "npm --workspace @sdc/simulation-worker run dev",
+    "dev:grading-worker": "npm --workspace @sdc/grading-worker run dev",
+    "loadtest:stage9": "node infra/scripts/stage9-loadtest.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.23.0",
+    "eslint": "^9.23.0",
+    "globals": "^16.0.0",
+    "prettier": "^3.5.3",
+    "typescript": "^5.8.2",
+    "typescript-eslint": "^8.27.0"
+  }
+}

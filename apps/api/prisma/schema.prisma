@@ -1,0 +1,235 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                  String   @id @default(uuid())
+  email               String   @unique
+  passwordHash        String
+  onboardingCompleted Boolean  @default(false)
+  role                String?
+  targetCompanies     Json     @default("[]")
+  level               String?
+  scenarioPreferences Json     @default("[]")
+  projects            Project[]
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model Scenario {
+  id               String    @id @default(uuid())
+  slug             String    @unique
+  title            String
+  description      String
+  difficulty       String
+  domain           String
+  estimatedMinutes Int
+  expectedRps      Int?
+  isActive         Boolean   @default(true)
+  projects         Project[]
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}
+
+model Project {
+  id           String                @id @default(uuid())
+  userId       String
+  scenarioId   String
+  title        String
+  user         User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scenario     Scenario              @relation(fields: [scenarioId], references: [id], onDelete: Restrict)
+  versions     ArchitectureVersion[]
+  runs         SimulationRun[]
+  gradeReports GradeReport[]
+  reportExports ReportExport[]
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  @@index([userId, createdAt])
+}
+
+model ArchitectureVersion {
+  id               String                @id @default(uuid())
+  projectId        String
+  parentVersionId  String?
+  versionNumber    Int
+  components       Json                  @default("[]")
+  edges            Json                  @default("[]")
+  trafficProfile   Json                  @default("{}")
+  notes            String?
+  project          Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parentVersion    ArchitectureVersion?  @relation("VersionParentChild", fields: [parentVersionId], references: [id], onDelete: SetNull)
+  childVersions    ArchitectureVersion[] @relation("VersionParentChild")
+  runs             SimulationRun[]
+  gradeReports     GradeReport[]
+  baselineReportExports ReportExport[] @relation("ReportExportBaselineVersion")
+  candidateReportExports ReportExport[] @relation("ReportExportCandidateVersion")
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  @@unique([projectId, versionNumber])
+  @@index([projectId, createdAt])
+}
+
+model ReportExport {
+  id               String              @id @default(uuid())
+  projectId        String
+  baselineVersionId String
+  candidateVersionId String
+  format           String              @default("pdf")
+  fileName         String
+  reportSnapshot   Json
+  shareToken       String?             @unique
+  shareRevokedAt   DateTime?
+  project          Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  baselineVersion  ArchitectureVersion @relation("ReportExportBaselineVersion", fields: [baselineVersionId], references: [id], onDelete: Cascade)
+  candidateVersion ArchitectureVersion @relation("ReportExportCandidateVersion", fields: [candidateVersionId], references: [id], onDelete: Cascade)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  @@index([projectId, createdAt])
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  userId      String?
+  action      String
+  resourceType String
+  resourceId  String?
+  statusCode  Int
+  ipAddress   String?
+  userAgent   String?
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([resourceType, createdAt])
+  @@index([userId, createdAt])
+}
+
+model RequestTelemetry {
+  id         String   @id @default(uuid())
+  requestId  String
+  method     String
+  path       String
+  statusCode Int
+  durationMs Int
+  userId     String?
+  ipAddress  String?
+  userAgent  String?
+  metadata   Json     @default("{}")
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([path, createdAt])
+  @@index([statusCode, createdAt])
+  @@index([userId, createdAt])
+}
+
+model JobTelemetry {
+  id           String   @id @default(uuid())
+  queueName    String
+  jobType      String
+  jobId        String
+  state        String
+  attempt      Int      @default(0)
+  durationMs   Int?
+  errorMessage String?
+  metadata     Json     @default("{}")
+  createdAt    DateTime @default(now())
+
+  @@index([queueName, createdAt])
+  @@index([jobType, createdAt])
+  @@index([jobId, createdAt])
+  @@index([state, createdAt])
+}
+
+model SimulationRun {
+  id           String               @id @default(uuid())
+  projectId    String
+  versionId    String
+  baselineRunId String?
+  status       String               @default("pending")
+  inputContract Json
+  failureProfile Json?
+  metrics      Json?
+  bottlenecks  Json                 @default("[]")
+  blastRadius  Json?
+  failureReason String?
+  queuedAt     DateTime             @default(now())
+  startedAt    DateTime?
+  completedAt  DateTime?
+  project      Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  version      ArchitectureVersion  @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  baselineRun  SimulationRun?       @relation("SimulationRunBaseline", fields: [baselineRunId], references: [id], onDelete: SetNull)
+  injectedRuns SimulationRun[]      @relation("SimulationRunBaseline")
+  events       SimulationRunEvent[]
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  @@index([projectId, createdAt])
+  @@index([versionId, createdAt])
+  @@index([baselineRunId, createdAt])
+}
+
+model SimulationRunEvent {
+  id          String        @id @default(uuid())
+  runId       String
+  sequence    Int
+  atSecond    Int
+  severity    String
+  title       String
+  description String
+  componentId String?
+  run         SimulationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  createdAt   DateTime      @default(now())
+
+  @@index([runId, sequence])
+  @@index([runId, atSecond])
+}
+
+model GradeReport {
+  id                String               @id @default(uuid())
+  projectId         String
+  versionId         String
+  status            String               @default("pending")
+  overallScore      Int?
+  categoryScores    Json                 @default("[]")
+  strengths         Json                 @default("[]")
+  risks             Json                 @default("[]")
+  deterministicNotes Json                @default("[]")
+  actionItems       Json                 @default("[]")
+  summary           String?
+  aiProvider        String?
+  aiModel           String?
+  failureReason     String?
+  queuedAt          DateTime             @default(now())
+  startedAt         DateTime?
+  completedAt       DateTime?
+  project           Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  version           ArchitectureVersion  @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  feedbackItems     FeedbackItem[]
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  @@index([projectId, createdAt])
+  @@index([versionId, createdAt])
+}
+
+model FeedbackItem {
+  id            String      @id @default(uuid())
+  gradeReportId String
+  priority      String
+  title         String
+  description   String
+  evidence      Json        @default("[]")
+  gradeReport   GradeReport @relation(fields: [gradeReportId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+
+  @@index([gradeReportId, createdAt])
+}
