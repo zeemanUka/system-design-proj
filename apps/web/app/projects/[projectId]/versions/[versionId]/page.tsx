@@ -231,16 +231,30 @@ export default function VersionWorkspacePage() {
               return;
             }
 
+            let message = 'Autosave failed.';
+            if (response.status === 429) {
+              message = 'Autosave paused due to rate limiting. Please wait a few seconds.';
+            } else {
+              try {
+                const payload = (await response.json()) as { message?: string };
+                if (payload?.message) {
+                  message = `Autosave failed: ${payload.message}`;
+                }
+              } catch {
+                // Ignore JSON parse failures and keep fallback message.
+              }
+            }
+
             setSaveState('error');
-            setError('Autosave failed.');
+            setError(message);
             return;
           }
 
           const updated = (await response.json()) as VersionDetail;
           setVersion(updated);
-          setTrafficProfile(updated.trafficProfile);
           setSaveState('saved');
           setLastSavedAt(new Date().toLocaleTimeString());
+          setError(null);
         } catch {
           setSaveState('error');
           setError('Autosave failed.');

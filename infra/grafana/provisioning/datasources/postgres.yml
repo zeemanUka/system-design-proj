@@ -1,0 +1,22 @@
+apiVersion: 1
+
+prune: true
+
+datasources:
+  - name: SDC Postgres
+    type: postgres
+    access: proxy
+    url: postgres:5432
+    user: postgres
+    secureJsonData:
+      password: postgres
+    jsonData:
+      database: system_design_coach
+      sslmode: disable
+      postgresVersion: 1600
+      timescaledb: false
+      maxOpenConns: 25
+      maxIdleConns: 25
+      connMaxLifetime: 14400
+    isDefault: true
+    editable: true

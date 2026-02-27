@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: System Design Coach Observability
+    orgId: 1
+    folder: System Design Coach
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /var/lib/grafana/dashboards

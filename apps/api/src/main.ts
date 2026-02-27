@@ -7,12 +7,13 @@ import { ObservabilityService } from './observability/observability.service.js';
 import { AppModule } from './app.module.js';
 
 function parseAllowedOrigins(): string[] {
-  const raw = process.env.CORS_ALLOWED_ORIGINS || 'http://localhost:3000';
+  const raw = process.env.CORS_ALLOWED_ORIGINS || 'http://localhost:3000,http://127.0.0.1:3000';
   const origins = raw
     .split(',')
     .map((entry) => entry.trim())
     .filter((entry) => entry.length > 0);
-  return origins.length > 0 ? origins : ['http://localhost:3000'];
+  const withLocalDefaults = [...origins, 'http://localhost:3000', 'http://127.0.0.1:3000'];
+  return Array.from(new Set(withLocalDefaults));
 }
 
 function safeObjectKeys(value: unknown): string[] {
@@ -51,7 +52,11 @@ async function bootstrap() {
 
   app.enableCors({
     origin: allowedOrigins,
-    credentials: true
+    credentials: true,
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Authorization', 'Content-Type', 'Accept', 'Origin', 'X-Requested-With'],
+    exposedHeaders: ['X-RateLimit-Limit', 'X-RateLimit-Remaining', 'X-RateLimit-Reset', 'Retry-After'],
+    maxAge: 86_400
   });
 
   app.useGlobalPipes(
