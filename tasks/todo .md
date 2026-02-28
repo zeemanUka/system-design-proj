@@ -145,3 +145,47 @@ Fix CORS failures blocking `PATCH` requests for workspace autosave and traffic p
   - `Access-Control-Allow-Origin` confirmed for both `http://localhost:3000` and `http://127.0.0.1:3000`
   - `npm --workspace @sdc/api run typecheck` passed
   - `npm --workspace @sdc/api run lint` passed
+
+---
+
+# UI Redesign Rollout (2026-02-28)
+
+## Scope
+Apply the redesign guidance from `docs/ui-redesign-prompts.md` across all targeted pages and shared styling.
+
+## Plan
+- [x] 1. Audit prompt requirements + map impacted pages/components
+- [x] 2. Upgrade global design system in `apps/web/app/globals.css` (themes, motion, cards, layout primitives)
+- [x] 3. Redesign landing page (`/`) with sticky nav, animated hero, trust counters, stepper, footer, dark-mode toggle
+- [x] 4. Redesign auth + dashboard + scenario picker pages
+- [x] 5. Redesign workspace + traffic profile pages
+- [x] 6. Redesign simulation + failure lab + grading pages
+- [x] 7. Redesign compare page and align report/shared surfaces with updated visual system
+- [x] 8. Run web lint/typecheck and fix regressions
+- [x] 9. Update review notes with files changed and verification
+
+## Review
+- Completed full UI redesign rollout guided by `docs/ui-redesign-prompts.md`.
+- Upgraded global design system in `apps/web/app/globals.css`:
+  - theme tokens + dark mode variable overrides
+  - glassmorphism cards, motion keyframes, animated backgrounds
+  - page-specific UI primitives for landing, auth, dashboard, workspace, simulation, grading, failure lab, compare, traffic
+- Redesigned route surfaces:
+  - `apps/web/app/page.tsx` (sticky nav, animated hero, reveal sections, trust counters, dark mode toggle, timeline stepper, footer)
+  - `apps/web/app/auth/page.tsx` (split layout, animated brand panel, pill tab switch, floating labels, loading spinner, shake errors)
+  - `apps/web/app/dashboard/page.tsx` (welcome header, trend chart, animated stats, heatmap, quick actions, richer project cards, empty state)
+  - `apps/web/app/scenarios/page.tsx` (sticky filter bar, search, difficulty/domain chips, hover previews, curated cards)
+  - `apps/web/app/projects/[projectId]/versions/[versionId]/page.tsx` (tool-style workspace UI, zoom/undo/redo/minimap toolbar, animated palette/nodes/edges, warning toasts, slider-based scaling)
+  - `apps/web/app/projects/[projectId]/versions/[versionId]/traffic/page.tsx` (preset cards, slider controls, live chart preview, sticky computed summary)
+  - `apps/web/app/runs/[runId]/page.tsx` (real-time KPI dashboard, bottleneck bars, timeline, architecture overlay)
+  - `apps/web/app/runs/[runId]/failure-injection/page.tsx` (war-room shell, failure mode cards, before/after deltas, blast-radius visualization)
+  - `apps/web/app/grades/[gradeId]/page.tsx` (score ring hero, category bars, strengths/risks cards, prioritized action list with expandable details, fix-version CTA)
+  - `apps/web/app/projects/[projectId]/compare/page.tsx` (side-by-side compare, delta arrows, transition animation, score progression sparkline)
+  - aligned supporting pages for consistency:
+    - `apps/web/app/onboarding/page.tsx`
+    - `apps/web/app/projects/[projectId]/page.tsx`
+    - `apps/web/app/projects/[projectId]/report/page.tsx`
+    - `apps/web/app/shared/reports/[shareToken]/page.tsx`
+- Verification:
+  - `npm --workspace @sdc/web run lint` passed
+  - `npm --workspace @sdc/web run typecheck` passed

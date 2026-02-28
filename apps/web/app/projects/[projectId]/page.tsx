@@ -3,7 +3,7 @@
 import { ProjectHistoryResponse } from '@sdc/shared-types';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { API_BASE_URL } from '@/lib/api';
 import { clearAuthToken, getAuthToken } from '@/lib/auth-token';
 
@@ -98,6 +98,8 @@ export default function ProjectHistoryPage() {
     }
   }
 
+  const latestVersion = useMemo(() => history?.versions[0] ?? null, [history]);
+
   return (
     <main>
       <div className="page-stack">
@@ -108,7 +110,12 @@ export default function ProjectHistoryPage() {
           {error ? <p className="error">{error}</p> : null}
 
           {!history ? (
-            <p className="muted">Loading project history...</p>
+            <div className="button-row">
+              <span className="loading-dot" />
+              <p className="muted" style={{ marginBottom: 0 }}>
+                Loading project history...
+              </p>
+            </div>
           ) : (
             <>
               <p className="kicker">Project History</p>
@@ -117,8 +124,9 @@ export default function ProjectHistoryPage() {
                 {history.project.scenarioTitle} • {history.project.scenarioDifficulty} • {history.project.scenarioDomain}
               </p>
 
-              <div className="button-row" style={{ marginTop: '0.2rem' }}>
+              <div className="button-row" style={{ marginTop: '0.25rem' }}>
                 <span className="pill">Versions: {history.project.versionCount}</span>
+                {latestVersion ? <span className="pill">Latest: v{latestVersion.versionNumber}</span> : null}
                 <button className="button" type="button" disabled={isCreatingVersion} onClick={() => void createNewVersion()}>
                   {isCreatingVersion ? 'Creating...' : 'Create New Version'}
                 </button>
@@ -136,21 +144,29 @@ export default function ProjectHistoryPage() {
         {history ? (
           <section className="card">
             <h2>Version Timeline</h2>
-            <div className="list-grid">
-              {history.versions.map((version) => (
-                <article key={version.id} className="list-item">
-                  <div className="list-item-header">
-                    <div>
-                      <h3 style={{ marginBottom: 0 }}>Version {version.versionNumber}</h3>
-                      <p className="muted" style={{ marginTop: '0.3rem' }}>
-                        Parent: {version.parentVersionId ?? 'none'}
-                      </p>
+            <div className="timeline-stepper">
+              {history.versions.map((version, index) => (
+                <article className="timeline-step" key={version.id}>
+                  <span className="dot">{version.versionNumber}</span>
+                  <div className="copy">
+                    <div className="list-item-header">
+                      <div>
+                        <h3 style={{ marginBottom: 0 }}>Version {version.versionNumber}</h3>
+                        <p className="muted" style={{ marginTop: '0.2rem', marginBottom: '0.25rem' }}>
+                          Parent: {version.parentVersionId ?? 'none'}
+                        </p>
+                      </div>
+                      <span className={`pill ${index === 0 ? 'pill-accent' : ''}`}>{index === 0 ? 'latest' : 'history'}</span>
                     </div>
-                    <Link href={`/projects/${projectId}/versions/${version.id}`}>Open Workspace</Link>
+                    <p className="muted" style={{ marginBottom: '0.3rem' }}>
+                      Notes: {version.notes ?? 'No notes'}
+                    </p>
+                    <div className="button-row">
+                      <Link className="button button-secondary" href={`/projects/${projectId}/versions/${version.id}`}>
+                        Open Workspace
+                      </Link>
+                    </div>
                   </div>
-                  <p className="muted" style={{ marginTop: '0.45rem' }}>
-                    Notes: {version.notes ?? 'No notes'}
-                  </p>
                 </article>
               ))}
             </div>

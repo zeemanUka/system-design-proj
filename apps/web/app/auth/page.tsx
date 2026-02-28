@@ -16,9 +16,7 @@ export default function AuthPage() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const submitLabel = useMemo(() => {
-    return mode === 'signup' ? 'Create account' : 'Sign in';
-  }, [mode]);
+  const submitLabel = useMemo(() => (mode === 'signup' ? 'Create account' : 'Sign in'), [mode]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -56,45 +54,120 @@ export default function AuthPage() {
 
   return (
     <main>
-      <div className="page-grid-two">
-        <section className="card">
-          <p className="kicker">Account Access</p>
-          <h1>{mode === 'signup' ? 'Create your account' : 'Welcome back'}</h1>
-          <p className="subtitle">Use one flow for sign up and sign in so you can start practicing quickly.</p>
+      <div className="auth-shell">
+        <section className="card auth-brand">
+          <div className="auth-brand-content">
+            <div>
+              <p className="kicker" style={{ color: '#9ae9d3' }}>
+                System Design Coach
+              </p>
+              <h1>Train under realistic scale pressure.</h1>
+              <p className="subtitle" style={{ color: '#c7d8de' }}>
+                Build architecture, inject traffic and failures, and get AI-graded feedback before interviews.
+              </p>
+            </div>
 
-          <form onSubmit={onSubmit}>
-            <label className="field">
-              Email
+            <div className="counter-grid">
+              <article className="counter-card">
+                <p className="counter-value">500+</p>
+                <p className="muted" style={{ color: '#b7cad1' }}>
+                  Practice runs scored
+                </p>
+              </article>
+              <article className="counter-card">
+                <p className="counter-value">50+</p>
+                <p className="muted" style={{ color: '#b7cad1' }}>
+                  Interview scenarios
+                </p>
+              </article>
+              <article className="counter-card">
+                <p className="counter-value">1-click</p>
+                <p className="muted" style={{ color: '#b7cad1' }}>
+                  Version branching
+                </p>
+              </article>
+            </div>
+
+            <div className="timeline-stepper">
+              <article className="timeline-step">
+                <span className="dot">1</span>
+                <div className="copy" style={{ borderLeftColor: 'rgba(153, 220, 200, 0.35)' }}>
+                  <h3 style={{ marginBottom: 0.15 }}>Pick challenge</h3>
+                  <p className="muted" style={{ color: '#b7cad1', marginBottom: 0 }}>
+                    Domain, difficulty, and time budget.
+                  </p>
+                </div>
+              </article>
+              <article className="timeline-step">
+                <span className="dot">2</span>
+                <div className="copy" style={{ borderLeftColor: 'rgba(153, 220, 200, 0.35)' }}>
+                  <h3 style={{ marginBottom: 0.15 }}>Design and scale</h3>
+                  <p className="muted" style={{ color: '#b7cad1', marginBottom: 0 }}>
+                    Horizontal and vertical tuning in one canvas.
+                  </p>
+                </div>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section className="card auth-form-card">
+          <p className="kicker">Account Access</p>
+          <h2>{mode === 'signup' ? 'Create your account' : 'Welcome back'}</h2>
+          <p className="subtitle">Switch between sign up and sign in without leaving this page.</p>
+
+          <div className={`tab-toggle ${mode}`}>
+            <span className="pill-bg" />
+            <button className={mode === 'signup' ? 'active' : ''} type="button" onClick={() => setMode('signup')}>
+              Sign Up
+            </button>
+            <button className={mode === 'login' ? 'active' : ''} type="button" onClick={() => setMode('login')}>
+              Sign In
+            </button>
+          </div>
+
+          <form onSubmit={onSubmit} style={{ marginTop: '1rem' }}>
+            <label className="floating-field field">
               <input
                 required
                 autoComplete="email"
+                placeholder=" "
                 type="email"
                 value={email}
+                className={error ? 'input-error' : ''}
                 onChange={(event) => setEmail(event.target.value)}
               />
+              <span>Email</span>
             </label>
 
-            <label className="field">
-              Password
+            <label className="floating-field field">
               <input
                 required
                 autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+                placeholder=" "
                 type="password"
                 value={password}
+                className={error ? 'input-error' : ''}
                 onChange={(event) => setPassword(event.target.value)}
               />
+              <span>Password</span>
             </label>
 
-            {error ? <p className="error">{error}</p> : null}
+            {error ? <p className="error error-shake">{error}</p> : null}
 
-            <div className="button-row">
-              <button className="button" disabled={isSubmitting} type="submit">
-                {isSubmitting ? 'Submitting...' : submitLabel}
-              </button>
-            </div>
+            <button className="button" disabled={isSubmitting} type="submit" style={{ marginTop: '0.35rem' }}>
+              {isSubmitting ? (
+                <>
+                  <span className="loading-dot" />
+                  Processing...
+                </>
+              ) : (
+                submitLabel
+              )}
+            </button>
           </form>
 
-          <p className="muted" style={{ marginTop: '1rem' }}>
+          <p className="muted" style={{ marginTop: '1rem', marginBottom: 0 }}>
             {mode === 'signup' ? 'Already have an account?' : "Don't have an account?"}{' '}
             <button
               className="button button-link"
@@ -104,24 +177,6 @@ export default function AuthPage() {
               {mode === 'signup' ? 'Sign in' : 'Create one'}
             </button>
           </p>
-        </section>
-
-        <section className="card">
-          <p className="kicker">What Happens Next</p>
-          <div className="timeline">
-            <div className="timeline-item">
-              <h3>Complete Onboarding</h3>
-              <p className="muted">Set your level, role, and scenario preferences.</p>
-            </div>
-            <div className="timeline-item">
-              <h3>Pick A Scenario</h3>
-              <p className="muted">Start from a prompt that matches your interview target.</p>
-            </div>
-            <div className="timeline-item">
-              <h3>Design Iteratively</h3>
-              <p className="muted">Create versions, tune traffic assumptions, and improve with each attempt.</p>
-            </div>
-          </div>
         </section>
       </div>
     </main>

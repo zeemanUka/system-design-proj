@@ -14,7 +14,7 @@ import {
 } from '@sdc/shared-types';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { PointerEvent, useEffect, useMemo, useState } from 'react';
+import { PointerEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { API_BASE_URL } from '@/lib/api';
 import { clearAuthToken, getAuthToken } from '@/lib/auth-token';
 
@@ -26,6 +26,8 @@ type PaletteItem = {
   stateful: boolean;
 };
 
+type VerticalTier = ArchitectureComponent['scaling']['verticalTier'];
+
 type DragState = {
   componentId: string;
   startX: number;
@@ -33,6 +35,13 @@ type DragState = {
   originX: number;
   originY: number;
 } | null;
+
+type WorkspaceSnapshot = {
+  components: ArchitectureComponent[];
+  edges: ArchitectureEdge[];
+  notes: string;
+  selectedComponentId: string | null;
+};
 
 const PALETTE: PaletteItem[] = [
   { type: 'client', label: 'Client', stateful: false },
@@ -45,6 +54,8 @@ const PALETTE: PaletteItem[] = [
   { type: 'cdn', label: 'CDN', stateful: false },
   { type: 'object-store', label: 'Object Store', stateful: true }
 ];
+
+const VERTICAL_TIERS: VerticalTier[] = ['small', 'medium', 'large', 'xlarge'];
 
 const CANVAS_WIDTH = 960;
 const CANVAS_HEIGHT = 540;
@@ -90,6 +101,45 @@ function getDisplayPosition(component: ArchitectureComponent) {
   };
 }
 
+function componentIcon(type: ComponentType): string {
+  switch (type) {
+    case 'client':
+      return 'CLI';
+    case 'load-balancer':
+      return 'LB';
+    case 'api-gateway':
+      return 'API';
+    case 'service':
+      return 'SVC';
+    case 'cache':
+      return 'CAC';
+    case 'database':
+      return 'DB';
+    case 'queue':
+      return 'Q';
+    case 'cdn':
+      return 'CDN';
+    case 'object-store':
+      return 'OBJ';
+    default:
+      return 'N';
+  }
+}
+
+function cloneComponents(components: ArchitectureComponent[]): ArchitectureComponent[] {
+  return components.map((component) => ({
+    ...component,
+    position: { ...component.position },
+    capacity: { ...component.capacity },
+    scaling: { ...component.scaling },
+    behavior: { ...component.behavior }
+  }));
+}
+
+function cloneEdges(edges: ArchitectureEdge[]): ArchitectureEdge[] {
+  return edges.map((edge) => ({ ...edge }));
+}
+
 export default function VersionWorkspacePage() {
   const router = useRouter();
   const params = useParams<{ projectId: string; versionId: string }>();
@@ -111,6 +161,13 @@ export default function VersionWorkspacePage() {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isStartingSimulation, setIsStartingSimulation] = useState(false);
   const [isStartingGrade, setIsStartingGrade] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const [showMinimap, setShowMinimap] = useState(true);
+  const [freshNodeIds, setFreshNodeIds] = useState<string[]>([]);
+  const [historyTick, setHistoryTick] = useState(0);
+
+  const undoStackRef = useRef<WorkspaceSnapshot[]>([]);
+  const redoStackRef = useRef<WorkspaceSnapshot[]>([]);
 
   const warnings = useMemo(() => validateArchitectureTopology(components, edges), [components, edges]);
   const selectedComponent = useMemo(() => {
@@ -146,6 +203,60 @@ export default function VersionWorkspacePage() {
       ];
     });
   }, [componentMap, edges]);
+
+  const canUndo = undoStackRef.current.length > 0;
+  const canRedo = redoStackRef.current.length > 0;
+
+  function snapshotCurrentState(): WorkspaceSnapshot {
+    return {
+      components: cloneComponents(components),
+      edges: cloneEdges(edges),
+      notes,
+      selectedComponentId
+    };
+  }
+
+  function applySnapshot(snapshot: WorkspaceSnapshot) {
+    setComponents(cloneComponents(snapshot.components));
+    setEdges(cloneEdges(snapshot.edges));
+    setNotes(snapshot.notes);
+    setSelectedComponentId(snapshot.selectedComponentId);
+  }
+
+  function pushUndoSnapshot() {
+    if (!isLoaded) {
+      return;
+    }
+
+    undoStackRef.current.push(snapshotCurrentState());
+    if (undoStackRef.current.length > 80) {
+      undoStackRef.current.shift();
+    }
+    redoStackRef.current = [];
+    setHistoryTick((current) => current + 1);
+  }
+
+  function undoChange() {
+    const previous = undoStackRef.current.pop();
+    if (!previous) {
+      return;
+    }
+
+    redoStackRef.current.push(snapshotCurrentState());
+    applySnapshot(previous);
+    setHistoryTick((current) => current + 1);
+  }
+
+  function redoChange() {
+    const next = redoStackRef.current.pop();
+    if (!next) {
+      return;
+    }
+
+    undoStackRef.current.push(snapshotCurrentState());
+    applySnapshot(next);
+    setHistoryTick((current) => current + 1);
+  }
 
   useEffect(() => {
     const token = getAuthToken();
@@ -185,6 +296,9 @@ export default function VersionWorkspacePage() {
         setIsLoaded(true);
         setSaveState('saved');
         setLastSavedAt(new Date(payload.updatedAt).toLocaleTimeString());
+        undoStackRef.current = [];
+        redoStackRef.current = [];
+        setHistoryTick((current) => current + 1);
       } catch {
         setError('Unable to reach server.');
       }
@@ -236,9 +350,9 @@ export default function VersionWorkspacePage() {
               message = 'Autosave paused due to rate limiting. Please wait a few seconds.';
             } else {
               try {
-                const payload = (await response.json()) as { message?: string };
-                if (payload?.message) {
-                  message = `Autosave failed: ${payload.message}`;
+                const responsePayload = (await response.json()) as { message?: string };
+                if (responsePayload?.message) {
+                  message = `Autosave failed: ${responsePayload.message}`;
                 }
               } catch {
                 // Ignore JSON parse failures and keep fallback message.
@@ -286,15 +400,24 @@ export default function VersionWorkspacePage() {
     }));
   }
 
-  function updateSelectedComponent(update: (component: ArchitectureComponent) => ArchitectureComponent) {
+  function updateSelectedComponent(
+    update: (component: ArchitectureComponent) => ArchitectureComponent,
+    trackHistory = false
+  ) {
     if (!selectedComponentId) {
       return;
+    }
+
+    if (trackHistory) {
+      pushUndoSnapshot();
     }
 
     updateComponent(selectedComponentId, update);
   }
 
   function addComponent(item: PaletteItem) {
+    pushUndoSnapshot();
+
     const node = defaultComponent(
       `${item.label} ${components.length + 1}`,
       item.type,
@@ -305,9 +428,15 @@ export default function VersionWorkspacePage() {
     setComponents((current) => [...current, node]);
     setSelectedComponentId(node.id);
     setError(null);
+    setFreshNodeIds((current) => [...current, node.id]);
+    window.setTimeout(() => {
+      setFreshNodeIds((current) => current.filter((id) => id !== node.id));
+    }, 600);
   }
 
   function removeComponent(componentId: string) {
+    pushUndoSnapshot();
+
     setComponents((current) => current.filter((component) => component.id !== componentId));
     setEdges((current) =>
       current.filter((edge) => edge.sourceId !== componentId && edge.targetId !== componentId)
@@ -339,6 +468,8 @@ export default function VersionWorkspacePage() {
       setError('This connection already exists.');
       return;
     }
+
+    pushUndoSnapshot();
 
     const edge: ArchitectureEdge = {
       id: crypto.randomUUID(),
@@ -433,6 +564,8 @@ export default function VersionWorkspacePage() {
       return;
     }
 
+    pushUndoSnapshot();
+
     const displayPosition = getDisplayPosition(component);
     setSelectedComponentId(component.id);
     setDragState({
@@ -487,11 +620,12 @@ export default function VersionWorkspacePage() {
           </p>
           <p className="kicker">Design Workspace</p>
           <h1>{version ? `Version ${version.versionNumber}` : 'Loading version workspace...'}</h1>
-          <p className="subtitle">Drag components onto the canvas and connect them to model your architecture graph.</p>
+          <p className="subtitle">Drag components onto the canvas and pressure test scaling assumptions in real time.</p>
+
           <div className="button-row">
             <span className={`pill ${saveState === 'saved' ? 'pill-accent' : ''}`}>{saveLabel}</span>
             <span className="pill">
-              Traffic: {trafficProfile.baselineRps} RPS • x{trafficProfile.peakMultiplier}
+              Traffic: {trafficProfile.baselineRps} RPS x{trafficProfile.peakMultiplier}
             </span>
             <button className="button" type="button" disabled={isStartingSimulation} onClick={() => void startSimulation()}>
               {isStartingSimulation ? 'Starting run...' : 'Run Simulation'}
@@ -509,17 +643,48 @@ export default function VersionWorkspacePage() {
               Final Report
             </Link>
           </div>
+
+          <div className="workspace-toolbar">
+            <button className="button button-secondary" type="button" disabled={!canUndo} onClick={undoChange}>
+              Undo
+            </button>
+            <button className="button button-secondary" type="button" disabled={!canRedo} onClick={redoChange}>
+              Redo
+            </button>
+            <button className="button button-secondary" type="button" onClick={() => setZoom((current) => clamp(current - 0.1, 0.6, 1.6))}>
+              -
+            </button>
+            <span className="pill zoom-indicator">{Math.round(zoom * 100)}%</span>
+            <button className="button button-secondary" type="button" onClick={() => setZoom((current) => clamp(current + 0.1, 0.6, 1.6))}>
+              +
+            </button>
+            <button className="button button-secondary" type="button" onClick={() => setZoom(1)}>
+              Reset Zoom
+            </button>
+            <button className="button button-secondary" type="button" onClick={() => setShowMinimap((current) => !current)}>
+              {showMinimap ? 'Hide Minimap' : 'Show Minimap'}
+            </button>
+          </div>
+
           {error ? <p className="error">{error}</p> : null}
+          {warnings.length > 0 ? <p className="warning-toast">{warnings.length} validation warning(s) detected.</p> : null}
         </section>
 
-        <div className="workspace-grid">
+        <div className="workspace-grid" key={historyTick}>
           <section className="card">
             <h2>Component Palette</h2>
-            <p className="muted">Add nodes and then define source-target links.</p>
+            <p className="muted">Drag-ready building blocks with recommended defaults.</p>
             <div className="palette-grid">
               {PALETTE.map((item) => (
-                <button key={item.type} className="button button-secondary" type="button" onClick={() => addComponent(item)}>
-                  Add {item.label}
+                <button
+                  key={item.type}
+                  className="button button-secondary palette-item"
+                  title={`Add ${item.label}`}
+                  type="button"
+                  onClick={() => addComponent(item)}
+                >
+                  <span className="icon">{componentIcon(item.type)}</span>
+                  {item.label}
                 </button>
               ))}
             </div>
@@ -559,13 +724,14 @@ export default function VersionWorkspacePage() {
           <section className="card">
             <div className="split-row">
               <h2>Architecture Canvas</h2>
-              <p className="muted">Drag nodes to lay out the graph.</p>
+              <p className="muted">Drag nodes and observe animated data flow.</p>
             </div>
+
             {components.length === 0 ? (
               <p className="muted">Add components from the palette to start building your design.</p>
             ) : (
               <div className="canvas-shell">
-                <div className="canvas-board">
+                <div className="canvas-board" style={{ transform: `scale(${zoom})` }}>
                   <svg className="canvas-edge-layer" viewBox={`0 0 ${CANVAS_WIDTH} ${CANVAS_HEIGHT}`}>
                     {edgeLines.map((edge) => (
                       <line key={edge.id} className="edge-line" x1={edge.x1} y1={edge.y1} x2={edge.x2} y2={edge.y2} />
@@ -578,7 +744,9 @@ export default function VersionWorkspacePage() {
                     return (
                       <div
                         key={component.id}
-                        className={`canvas-node ${component.id === selectedComponentId ? 'selected' : ''}`}
+                        className={`canvas-node ${component.id === selectedComponentId ? 'selected' : ''} ${
+                          freshNodeIds.includes(component.id) ? 'node-fresh' : ''
+                        }`}
                         style={{
                           left: displayPosition.x,
                           top: displayPosition.y
@@ -618,13 +786,33 @@ export default function VersionWorkspacePage() {
                   <button
                     className="button button-link"
                     type="button"
-                    onClick={() => setEdges((current) => current.filter((item) => item.id !== edge.id))}
+                    onClick={() => {
+                      pushUndoSnapshot();
+                      setEdges((current) => current.filter((item) => item.id !== edge.id));
+                    }}
                   >
                     Remove
                   </button>
                 </div>
               ))}
             </div>
+
+            {showMinimap ? (
+              <div className="minimap" style={{ marginTop: '0.8rem' }}>
+                <p className="kicker" style={{ marginBottom: '0.3rem' }}>
+                  Minimap
+                </p>
+                {components.length === 0 ? <p className="muted">No nodes placed.</p> : null}
+                {components.map((component) => {
+                  const position = getDisplayPosition(component);
+                  return (
+                    <p className="minimap-item" key={`minimap-${component.id}`}>
+                      {component.label}: ({position.x}, {position.y})
+                    </p>
+                  );
+                })}
+              </div>
+            ) : null}
           </section>
 
           <section className="card">
@@ -655,13 +843,16 @@ export default function VersionWorkspacePage() {
                       max={CANVAS_WIDTH - NODE_WIDTH}
                       value={getDisplayPosition(selectedComponent).x}
                       onChange={(event) =>
-                        updateSelectedComponent((component) => ({
-                          ...component,
-                          position: {
-                            ...component.position,
-                            x: clamp(Number(event.target.value) || 0, 0, CANVAS_WIDTH - NODE_WIDTH)
-                          }
-                        }))
+                        updateSelectedComponent(
+                          (component) => ({
+                            ...component,
+                            position: {
+                              ...component.position,
+                              x: clamp(Number(event.target.value) || 0, 0, CANVAS_WIDTH - NODE_WIDTH)
+                            }
+                          }),
+                          true
+                        )
                       }
                     />
                   </label>
@@ -674,56 +865,107 @@ export default function VersionWorkspacePage() {
                       max={CANVAS_HEIGHT - NODE_HEIGHT}
                       value={getDisplayPosition(selectedComponent).y}
                       onChange={(event) =>
-                        updateSelectedComponent((component) => ({
-                          ...component,
-                          position: {
-                            ...component.position,
-                            y: clamp(Number(event.target.value) || 0, 0, CANVAS_HEIGHT - NODE_HEIGHT)
-                          }
-                        }))
+                        updateSelectedComponent(
+                          (component) => ({
+                            ...component,
+                            position: {
+                              ...component.position,
+                              y: clamp(Number(event.target.value) || 0, 0, CANVAS_HEIGHT - NODE_HEIGHT)
+                            }
+                          }),
+                          true
+                        )
                       }
                     />
                   </label>
                 </div>
 
-                <label className="field">
-                  Horizontal Scale (Replicas)
-                  <input
-                    type="number"
-                    min={1}
-                    value={selectedComponent.scaling.replicas}
-                    onChange={(event) =>
-                      updateSelectedComponent((component) => ({
-                        ...component,
-                        scaling: {
-                          ...component.scaling,
-                          replicas: Math.max(1, Number(event.target.value) || 1)
-                        }
-                      }))
-                    }
-                  />
-                </label>
+                <div className="slider-row">
+                  <label className="field" style={{ marginBottom: 0 }}>
+                    Horizontal Scale (Replicas)
+                    <input
+                      type="range"
+                      min={1}
+                      max={20}
+                      value={selectedComponent.scaling.replicas}
+                      onChange={(event) =>
+                        updateSelectedComponent(
+                          (component) => ({
+                            ...component,
+                            scaling: {
+                              ...component.scaling,
+                              replicas: Math.max(1, Number(event.target.value) || 1)
+                            }
+                          }),
+                          true
+                        )
+                      }
+                    />
+                  </label>
+                  <div className="slider-meta">
+                    <button
+                      className="button button-secondary"
+                      type="button"
+                      onClick={() =>
+                        updateSelectedComponent(
+                          (component) => ({
+                            ...component,
+                            scaling: {
+                              ...component.scaling,
+                              replicas: Math.max(1, component.scaling.replicas - 1)
+                            }
+                          }),
+                          true
+                        )
+                      }
+                    >
+                      -
+                    </button>
+                    <span className="pill">{selectedComponent.scaling.replicas} replicas</span>
+                    <button
+                      className="button button-secondary"
+                      type="button"
+                      onClick={() =>
+                        updateSelectedComponent(
+                          (component) => ({
+                            ...component,
+                            scaling: {
+                              ...component.scaling,
+                              replicas: component.scaling.replicas + 1
+                            }
+                          }),
+                          true
+                        )
+                      }
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
 
-                <label className="field">
-                  Vertical Tier
-                  <select
-                    value={selectedComponent.scaling.verticalTier}
-                    onChange={(event) =>
-                      updateSelectedComponent((component) => ({
-                        ...component,
-                        scaling: {
-                          ...component.scaling,
-                          verticalTier: event.target.value as ArchitectureComponent['scaling']['verticalTier']
-                        }
-                      }))
-                    }
-                  >
-                    <option value="small">Small</option>
-                    <option value="medium">Medium</option>
-                    <option value="large">Large</option>
-                    <option value="xlarge">XLarge</option>
-                  </select>
-                </label>
+                <div className="filter-row" style={{ marginBottom: '0.8rem' }}>
+                  {VERTICAL_TIERS.map((tier) => (
+                    <button
+                      key={tier}
+                      className={`filter-chip ${selectedComponent.scaling.verticalTier === tier ? 'active' : ''}`}
+                      type="button"
+                      onClick={() =>
+                        updateSelectedComponent(
+                          (component) => ({
+                            ...component,
+                            scaling: {
+                              ...component.scaling,
+                              verticalTier: tier
+                            }
+                          }),
+                          true
+                        )
+                      }
+                    >
+                      {tier.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
 
                 <label className="field">
                   Capacity (ops/s)
@@ -732,13 +974,16 @@ export default function VersionWorkspacePage() {
                     min={1}
                     value={selectedComponent.capacity.opsPerSecond}
                     onChange={(event) =>
-                      updateSelectedComponent((component) => ({
-                        ...component,
-                        capacity: {
-                          ...component.capacity,
-                          opsPerSecond: Math.max(1, Number(event.target.value) || 1)
-                        }
-                      }))
+                      updateSelectedComponent(
+                        (component) => ({
+                          ...component,
+                          capacity: {
+                            ...component.capacity,
+                            opsPerSecond: Math.max(1, Number(event.target.value) || 1)
+                          }
+                        }),
+                        true
+                      )
                     }
                   />
                 </label>
@@ -751,13 +996,16 @@ export default function VersionWorkspacePage() {
                       min={1}
                       value={selectedComponent.capacity.cpuCores}
                       onChange={(event) =>
-                        updateSelectedComponent((component) => ({
-                          ...component,
-                          capacity: {
-                            ...component.capacity,
-                            cpuCores: Math.max(1, Number(event.target.value) || 1)
-                          }
-                        }))
+                        updateSelectedComponent(
+                          (component) => ({
+                            ...component,
+                            capacity: {
+                              ...component.capacity,
+                              cpuCores: Math.max(1, Number(event.target.value) || 1)
+                            }
+                          }),
+                          true
+                        )
                       }
                     />
                   </label>
@@ -769,13 +1017,16 @@ export default function VersionWorkspacePage() {
                       min={1}
                       value={selectedComponent.capacity.memoryGb}
                       onChange={(event) =>
-                        updateSelectedComponent((component) => ({
-                          ...component,
-                          capacity: {
-                            ...component.capacity,
-                            memoryGb: Math.max(1, Number(event.target.value) || 1)
-                          }
-                        }))
+                        updateSelectedComponent(
+                          (component) => ({
+                            ...component,
+                            capacity: {
+                              ...component.capacity,
+                              memoryGb: Math.max(1, Number(event.target.value) || 1)
+                            }
+                          }),
+                          true
+                        )
                       }
                     />
                   </label>
@@ -786,13 +1037,16 @@ export default function VersionWorkspacePage() {
                     type="checkbox"
                     checked={selectedComponent.behavior.stateful}
                     onChange={(event) =>
-                      updateSelectedComponent((component) => ({
-                        ...component,
-                        behavior: {
-                          ...component.behavior,
-                          stateful: event.target.checked
-                        }
-                      }))
+                      updateSelectedComponent(
+                        (component) => ({
+                          ...component,
+                          behavior: {
+                            ...component.behavior,
+                            stateful: event.target.checked
+                          }
+                        }),
+                        true
+                      )
                     }
                   />
                   Stateful component
@@ -808,7 +1062,7 @@ export default function VersionWorkspacePage() {
                 rows={4}
                 value={notes}
                 onChange={(event) => setNotes(event.target.value)}
-                placeholder="Capture assumptions or next design steps."
+                placeholder="Capture assumptions, bottleneck hypotheses, or next iteration tasks."
               />
             </label>
 
@@ -816,7 +1070,7 @@ export default function VersionWorkspacePage() {
             {warnings.length === 0 ? <p className="muted">No validation warnings.</p> : null}
             <div className="warning-list">
               {warnings.map((warning, index) => (
-                <div key={`${warning.code}-${index}`} className="warning-item">
+                <div key={`${warning.code}-${index}`} className="warning-item warning-toast">
                   <p style={{ marginBottom: '0.15rem', fontWeight: 600 }}>{warning.code}</p>
                   <p style={{ marginBottom: 0 }}>{warning.message}</p>
                 </div>

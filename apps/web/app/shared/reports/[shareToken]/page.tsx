@@ -14,6 +14,14 @@ function deltaLabel(value: number | null, suffix = '') {
   return `${sign}${value.toFixed(2)}${suffix}`;
 }
 
+function deltaClass(value: number | null, higherIsBetter: boolean): string {
+  if (value === null || value === 0) {
+    return 'delta-neutral';
+  }
+  const improved = higherIsBetter ? value > 0 : value < 0;
+  return improved ? 'delta-positive' : 'delta-negative';
+}
+
 export default function SharedReportPage() {
   const params = useParams<{ shareToken: string }>();
   const shareToken = params.shareToken;
@@ -62,7 +70,7 @@ export default function SharedReportPage() {
         <section className="card">
           <p className="kicker">Shared Read-Only Report</p>
           <h1>System Design Progress Snapshot</h1>
-          <p className="subtitle">This link is view-only and intended for interviewer/mentor review.</p>
+          <p className="subtitle">This URL is view-only and intended for mentor or interviewer review.</p>
           <p style={{ marginBottom: 0 }}>
             <Link href="/">Open App Landing</Link>
           </p>
@@ -71,7 +79,10 @@ export default function SharedReportPage() {
 
         {isLoading ? (
           <section className="card">
-            <p className="muted">Loading shared report...</p>
+            <div className="button-row">
+              <span className="loading-dot" />
+              <strong>Loading shared report...</strong>
+            </div>
           </section>
         ) : null}
 
@@ -80,8 +91,7 @@ export default function SharedReportPage() {
             <section className="card">
               <h2>{data.report.summary.headline}</h2>
               <p className="muted">
-                Verdict: {data.report.summary.progressVerdict} • Generated{' '}
-                {new Date(data.report.generatedAt).toLocaleString()}
+                Verdict: {data.report.summary.progressVerdict} • Generated {new Date(data.report.generatedAt).toLocaleString()}
               </p>
               <div className="button-row">
                 <a className="button button-secondary" href={`${API_BASE_URL}${data.export.downloadPath}`}>
@@ -94,25 +104,25 @@ export default function SharedReportPage() {
               <h2>KPI Deltas</h2>
               <div className="metric-grid">
                 <article className="metric-card">
-                  <p className="metric-value">
+                  <p className={`metric-value ${deltaClass(data.report.compare.kpiDeltas.throughputRps.absoluteDelta, true)}`}>
                     {deltaLabel(data.report.compare.kpiDeltas.throughputRps.absoluteDelta, ' RPS')}
                   </p>
                   <p className="muted">Throughput Delta</p>
                 </article>
                 <article className="metric-card">
-                  <p className="metric-value">
+                  <p className={`metric-value ${deltaClass(data.report.compare.kpiDeltas.p95LatencyMs.absoluteDelta, false)}`}>
                     {deltaLabel(data.report.compare.kpiDeltas.p95LatencyMs.absoluteDelta, ' ms')}
                   </p>
                   <p className="muted">p95 Latency Delta</p>
                 </article>
                 <article className="metric-card">
-                  <p className="metric-value">
+                  <p className={`metric-value ${deltaClass(data.report.compare.kpiDeltas.errorRatePercent.absoluteDelta, false)}`}>
                     {deltaLabel(data.report.compare.kpiDeltas.errorRatePercent.absoluteDelta, '%')}
                   </p>
                   <p className="muted">Error Rate Delta</p>
                 </article>
                 <article className="metric-card">
-                  <p className="metric-value">
+                  <p className={`metric-value ${deltaClass(data.report.compare.kpiDeltas.overallScore.absoluteDelta, true)}`}>
                     {deltaLabel(data.report.compare.kpiDeltas.overallScore.absoluteDelta, ' pts')}
                   </p>
                   <p className="muted">Overall Score Delta</p>
@@ -124,16 +134,16 @@ export default function SharedReportPage() {
               <h2>Highlights</h2>
               {data.report.summary.highlights.length === 0 ? <p className="muted">No highlights listed.</p> : null}
               {data.report.summary.highlights.map((entry, index) => (
-                <p key={`highlight-${index}`} className="muted" style={{ margin: 0 }}>
-                  • {entry}
+                <p key={`highlight-${index}`} className="muted" style={{ marginBottom: '0.2rem' }}>
+                  + {entry}
                 </p>
               ))}
 
               <h2 style={{ marginTop: '0.85rem' }}>Concerns</h2>
               {data.report.summary.concerns.length === 0 ? <p className="muted">No concerns listed.</p> : null}
               {data.report.summary.concerns.map((entry, index) => (
-                <p key={`concern-${index}`} className="muted" style={{ margin: 0 }}>
-                  • {entry}
+                <p key={`concern-${index}`} className="muted" style={{ marginBottom: '0.2rem' }}>
+                  - {entry}
                 </p>
               ))}
             </section>

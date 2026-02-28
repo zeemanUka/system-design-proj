@@ -37,6 +37,17 @@ function deltaClass(value: number | null, higherIsBetter: boolean): string {
   return improved ? 'delta-positive' : 'delta-negative';
 }
 
+function priorityClass(priority: string): string {
+  const normalized = priority.toLowerCase();
+  if (normalized === 'p0') {
+    return 'priority-badge priority-p0';
+  }
+  if (normalized === 'p1') {
+    return 'priority-badge priority-p1';
+  }
+  return 'priority-badge priority-p2';
+}
+
 export default function ProjectReportPage() {
   const router = useRouter();
   const params = useParams<{ projectId: string }>();
@@ -492,7 +503,7 @@ export default function ProjectReportPage() {
               {report.summary.highlights.length === 0 ? <p className="muted">No highlights captured.</p> : null}
               {report.summary.highlights.map((entry, index) => (
                 <p key={`highlight-${index}`} className="muted" style={{ margin: 0 }}>
-                  • {entry}
+                  + {entry}
                 </p>
               ))}
 
@@ -500,7 +511,7 @@ export default function ProjectReportPage() {
               {report.summary.concerns.length === 0 ? <p className="muted">No concerns captured.</p> : null}
               {report.summary.concerns.map((entry, index) => (
                 <p key={`concern-${index}`} className="muted" style={{ margin: 0 }}>
-                  • {entry}
+                  - {entry}
                 </p>
               ))}
             </section>
@@ -512,10 +523,10 @@ export default function ProjectReportPage() {
               ) : (
                 <div className="list-grid">
                   {report.summary.recommendedActions.map((item, index) => (
-                    <article className="list-item" key={`${item.priority}-${index}`}>
+                    <article className="action-item" key={`${item.priority}-${index}`}>
                       <div className="list-item-header">
                         <h3 style={{ marginBottom: 0 }}>{item.title}</h3>
-                        <span className="pill">{item.priority}</span>
+                        <span className={priorityClass(item.priority)}>{item.priority}</span>
                       </div>
                       <p style={{ marginTop: '0.25rem' }}>{item.description}</p>
                       {item.evidence.length > 0 ? (

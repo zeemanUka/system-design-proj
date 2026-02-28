@@ -25,11 +25,33 @@ function statusLabel(status: SimulationRun['status']): string {
 }
 
 function statusClassName(status: SimulationRun['status']): string {
-  return status === 'completed'
-    ? 'pill pill-accent'
-    : status === 'failed'
-      ? 'pill'
-      : 'pill';
+  if (status === 'completed') {
+    return 'pill pill-accent';
+  }
+  if (status === 'failed') {
+    return 'pill pill-danger';
+  }
+  return 'pill pill-warning';
+}
+
+function eventIcon(severity: 'info' | 'warning' | 'critical'): string {
+  if (severity === 'critical') {
+    return 'X';
+  }
+  if (severity === 'warning') {
+    return '!';
+  }
+  return 'i';
+}
+
+function kpiState(value: number, warnAt: number, badAt: number): 'good' | 'warn' | 'bad' {
+  if (value >= badAt) {
+    return 'bad';
+  }
+  if (value >= warnAt) {
+    return 'warn';
+  }
+  return 'good';
 }
 
 export default function SimulationRunPage() {
@@ -104,6 +126,11 @@ export default function SimulationRunPage() {
     };
   }, [isTerminal, router, runId]);
 
+  const throughputClass = run?.metrics ? kpiState(run.metrics.throughputRps, run.metrics.capacityRps * 0.75, run.metrics.capacityRps * 0.95) : 'good';
+  const latencyClass = run?.metrics ? kpiState(run.metrics.p95LatencyMs, 180, 350) : 'good';
+  const errorClass = run?.metrics ? kpiState(run.metrics.errorRatePercent, 1.5, 4) : 'good';
+  const saturationClass = run?.metrics ? (run.metrics.saturated ? 'bad' : 'good') : 'good';
+
   return (
     <main>
       <div className="page-stack">
@@ -117,7 +144,7 @@ export default function SimulationRunPage() {
           </p>
           <p className="kicker">Simulation Results</p>
           <h1>Run {runId}</h1>
-          <p className="subtitle">Track execution progress and inspect bottlenecks as soon as results are ready.</p>
+          <p className="subtitle">Real-time run status, bottlenecks, timeline, and architecture saturation overlay.</p>
           {run ? <span className={statusClassName(run.status)}>{statusLabel(run.status)}</span> : null}
           {run?.status === 'completed' ? (
             <div className="button-row" style={{ marginTop: '0.75rem' }}>
@@ -127,16 +154,17 @@ export default function SimulationRunPage() {
             </div>
           ) : null}
           {error ? <p className="error">{error}</p> : null}
-          {run && !isTerminal ? (
-            <p className="muted" style={{ marginTop: '0.55rem' }}>
-              Run is still processing. This page auto-refreshes every 1.5 seconds.
-            </p>
-          ) : null}
         </section>
 
-        {loadState === 'loading' ? (
+        {loadState === 'loading' || (run && !isTerminal) ? (
           <section className="card">
-            <p className="muted">Loading run state...</p>
+            <div className="button-row">
+              <span className="loading-dot" />
+              <strong>{run ? 'Simulation in progress...' : 'Loading simulation state...'}</strong>
+            </div>
+            <p className="muted" style={{ marginTop: '0.5rem', marginBottom: 0 }}>
+              This page refreshes every 1.5 seconds while the run is active.
+            </p>
           </section>
         ) : null}
 
@@ -151,30 +179,22 @@ export default function SimulationRunPage() {
           <>
             <section className="card">
               <h2>KPIs</h2>
-              <div className="metric-grid">
-                <article className="metric-card">
+              <div className="kpi-grid">
+                <article className={`metric-card kpi-card ${throughputClass}`}>
                   <p className="metric-value">{Math.round(run.metrics.throughputRps).toLocaleString()}</p>
                   <p className="muted">Throughput RPS</p>
                 </article>
-                <article className="metric-card">
-                  <p className="metric-value">{Math.round(run.metrics.capacityRps).toLocaleString()}</p>
-                  <p className="muted">Capacity RPS</p>
-                </article>
-                <article className="metric-card">
-                  <p className="metric-value">{run.metrics.p50LatencyMs.toFixed(1)}ms</p>
-                  <p className="muted">p50 Latency</p>
-                </article>
-                <article className="metric-card">
+                <article className={`metric-card kpi-card ${latencyClass}`}>
                   <p className="metric-value">{run.metrics.p95LatencyMs.toFixed(1)}ms</p>
                   <p className="muted">p95 Latency</p>
                 </article>
-                <article className="metric-card">
+                <article className={`metric-card kpi-card ${errorClass}`}>
                   <p className="metric-value">{run.metrics.errorRatePercent.toFixed(2)}%</p>
                   <p className="muted">Error Rate</p>
                 </article>
-                <article className="metric-card">
-                  <p className="metric-value">{run.metrics.saturated ? 'Yes' : 'No'}</p>
-                  <p className="muted">Saturated</p>
+                <article className={`metric-card kpi-card ${saturationClass}`}>
+                  <p className="metric-value">{run.metrics.saturated ? 'Saturated' : 'Healthy'}</p>
+                  <p className="muted">Saturation</p>
                 </article>
               </div>
             </section>
@@ -183,23 +203,55 @@ export default function SimulationRunPage() {
               <h2>Bottlenecks</h2>
               {run.bottlenecks.length === 0 ? <p className="muted">No bottlenecks were detected.</p> : null}
               <div className="list-grid">
-                {run.bottlenecks.map((bottleneck) => (
-                  <article className="list-item" key={`${bottleneck.componentId}-${bottleneck.reason}`}>
+                {run.bottlenecks.map((bottleneck, index) => (
+                  <article className="list-item bottleneck-row" key={`${bottleneck.componentId}-${bottleneck.reason}`}>
                     <div className="list-item-header">
-                      <h3 style={{ marginBottom: 0 }}>{bottleneck.componentLabel}</h3>
-                      <span className="pill">{bottleneck.severity}</span>
+                      <h3 style={{ marginBottom: 0 }}>
+                        {index + 1}. {bottleneck.componentLabel}
+                      </h3>
+                      <span className={`pill ${bottleneck.severity === 'critical' ? 'pill-danger' : 'pill-warning'}`}>
+                        {bottleneck.severity}
+                      </span>
                     </div>
-                    <p className="muted" style={{ marginTop: '0.25rem' }}>
+                    <p className="muted" style={{ marginBottom: '0.2rem' }}>
                       {bottleneck.componentType} • Utilization {bottleneck.utilizationPercent.toFixed(1)}%
                     </p>
-                    <p className="muted" style={{ marginTop: '0.2rem' }}>
+                    <div className="bottleneck-track">
+                      <div
+                        className="bottleneck-fill"
+                        style={{ width: `${Math.min(100, Math.max(4, bottleneck.utilizationPercent))}%` }}
+                      />
+                    </div>
+                    <p className="muted" style={{ marginTop: '0.25rem', marginBottom: 0 }}>
                       Required {Math.round(bottleneck.requiredRps).toLocaleString()} RPS • Capacity{' '}
                       {Math.round(bottleneck.capacityRps).toLocaleString()} RPS
                     </p>
-                    <p style={{ marginTop: '0.3rem' }}>{bottleneck.reason}</p>
+                    <p style={{ marginBottom: 0 }}>{bottleneck.reason}</p>
                   </article>
                 ))}
               </div>
+            </section>
+
+            <section className="card">
+              <div className="split-row">
+                <h2>Interactive Architecture Overlay</h2>
+                <span className="pill">Saturation heat</span>
+              </div>
+              {run.bottlenecks.length === 0 ? (
+                <p className="muted">No impacted components to highlight.</p>
+              ) : (
+                <div className="overlay-grid">
+                  {run.bottlenecks.map((bottleneck) => (
+                    <article key={`overlay-${bottleneck.componentId}-${bottleneck.reason}`} className={`overlay-chip ${bottleneck.severity}`}>
+                      <strong>{bottleneck.componentLabel}</strong>
+                      <p className="muted" style={{ marginBottom: '0.15rem', marginTop: '0.25rem' }}>
+                        {bottleneck.componentType}
+                      </p>
+                      <p style={{ marginBottom: 0 }}>Utilization: {bottleneck.utilizationPercent.toFixed(1)}%</p>
+                    </article>
+                  ))}
+                </div>
+              )}
             </section>
           </>
         ) : null}
@@ -208,17 +260,19 @@ export default function SimulationRunPage() {
           <section className="card">
             <h2>Failure Timeline</h2>
             {run.events.length === 0 ? <p className="muted">No timeline events were recorded.</p> : null}
-            <div className="list-grid">
+            <div className="event-timeline">
               {run.events.map((event) => (
-                <article className="list-item" key={`${event.sequence}-${event.title}`}>
+                <article className="event-item" key={`${event.sequence}-${event.title}`}>
                   <div className="list-item-header">
-                    <h3 style={{ marginBottom: 0 }}>{event.title}</h3>
+                    <h3 style={{ marginBottom: 0 }}>
+                      [{eventIcon(event.severity)}] {event.title}
+                    </h3>
                     <span className="pill">t+{event.atSecond}s</span>
                   </div>
-                  <p className="muted" style={{ marginTop: '0.25rem' }}>
+                  <p className="muted" style={{ marginBottom: '0.2rem' }}>
                     Severity: {event.severity}
                   </p>
-                  <p style={{ marginTop: '0.2rem' }}>{event.description}</p>
+                  <p style={{ marginBottom: 0 }}>{event.description}</p>
                 </article>
               ))}
             </div>

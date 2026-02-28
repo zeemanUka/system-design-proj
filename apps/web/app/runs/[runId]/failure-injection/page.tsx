@@ -15,6 +15,40 @@ import { clearAuthToken, getAuthToken } from '@/lib/auth-token';
 
 type LoadState = 'loading' | 'ready' | 'error';
 
+type ModeCard = {
+  mode: FailureInjectionMode;
+  title: string;
+  description: string;
+  icon: string;
+};
+
+const MODE_CARDS: ModeCard[] = [
+  {
+    mode: 'node-down',
+    title: 'Node Down',
+    description: 'Force a component outage to test redundancy and failover paths.',
+    icon: 'ND'
+  },
+  {
+    mode: 'az-down',
+    title: 'AZ Down',
+    description: 'Drop an entire availability zone and inspect regional resilience.',
+    icon: 'AZ'
+  },
+  {
+    mode: 'dependency-lag',
+    title: 'Network Lag',
+    description: 'Inject dependency latency and monitor queueing and timeout behavior.',
+    icon: 'NL'
+  },
+  {
+    mode: 'traffic-surge',
+    title: 'Traffic Surge',
+    description: 'Spike incoming load to reveal bottlenecks and saturation limits.',
+    icon: 'TS'
+  }
+];
+
 function deltaLabel(before: number, after: number, unit = ''): string {
   const delta = after - before;
   const sign = delta >= 0 ? '+' : '';
@@ -28,6 +62,21 @@ function percentageChange(before: number, after: number): string {
   const value = ((after - before) / before) * 100;
   const sign = value >= 0 ? '+' : '';
   return `${sign}${value.toFixed(2)}%`;
+}
+
+function deltaClass(before: number, after: number, higherIsBetter: boolean): string {
+  if (before === after) {
+    return 'delta-neutral';
+  }
+  const improved = higherIsBetter ? after > before : after < before;
+  return improved ? 'delta-positive' : 'delta-negative';
+}
+
+function deltaArrow(before: number, after: number): string {
+  if (before === after) {
+    return '->';
+  }
+  return after > before ? 'UP' : 'DOWN';
 }
 
 export default function FailureInjectionPage() {
@@ -247,189 +296,215 @@ export default function FailureInjectionPage() {
 
   return (
     <main>
-      <div className="page-stack">
-        <section className="card">
-          <p style={{ marginTop: 0 }}>
-            <Link href={`/runs/${baselineRunId}`}>Back to Baseline Run</Link>
-          </p>
-          <p className="kicker">Failure Injection Lab</p>
-          <h1>Inject Controlled Failure Scenarios</h1>
-          <p className="subtitle">Run before/after comparisons and evaluate blast radius against your baseline.</p>
-          {error ? <p className="error">{error}</p> : null}
-        </section>
-
-        {loadState === 'loading' ? (
+      <div className="failure-shell">
+        <div className="page-stack">
           <section className="card">
-            <p className="muted">Loading baseline run context...</p>
-          </section>
-        ) : null}
-
-        {baselineRun && baselineRun.status !== 'completed' ? (
-          <section className="card">
-            <h2>Baseline Not Ready</h2>
-            <p className="muted">Baseline run must be completed before failure injection can start.</p>
-          </section>
-        ) : null}
-
-        {baselineRun?.status === 'completed' ? (
-          <section className="card">
-            <h2>Failure Profile</h2>
-            <form onSubmit={submitFailureInjection}>
-              <label className="field">
-                Mode
-                <select value={mode} onChange={(event) => setMode(event.target.value as FailureInjectionMode)}>
-                  <option value="node-down">Node Down</option>
-                  <option value="az-down">AZ Down</option>
-                  <option value="dependency-lag">Dependency Lag</option>
-                  <option value="traffic-surge">Traffic Surge</option>
-                </select>
-              </label>
-
-              {(mode === 'node-down' || mode === 'dependency-lag') && (
-                <label className="field">
-                  Target Component
-                  <select value={targetComponentId} onChange={(event) => setTargetComponentId(event.target.value)}>
-                    {componentOptions.map((component) => (
-                      <option key={component.id} value={component.id}>
-                        {component.label} ({component.type})
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
-
-              {mode === 'az-down' && (
-                <label className="field">
-                  AZ
-                  <select value={azName} onChange={(event) => setAzName(event.target.value as 'az-a' | 'az-b')}>
-                    <option value="az-a">AZ-A</option>
-                    <option value="az-b">AZ-B</option>
-                  </select>
-                </label>
-              )}
-
-              {mode === 'dependency-lag' && (
-                <label className="field">
-                  Added Lag (ms)
-                  <input
-                    type="number"
-                    min={50}
-                    max={5000}
-                    step={10}
-                    value={lagMs}
-                    onChange={(event) => setLagMs(Number(event.target.value) || 250)}
-                  />
-                </label>
-              )}
-
-              {mode === 'traffic-surge' && (
-                <label className="field">
-                  Surge Multiplier
-                  <input
-                    type="number"
-                    min={1.1}
-                    max={10}
-                    step={0.1}
-                    value={surgeMultiplier}
-                    onChange={(event) => setSurgeMultiplier(Number(event.target.value) || 2.2)}
-                  />
-                </label>
-              )}
-
-              <button className="button" type="submit" disabled={isSubmitting}>
-                {isSubmitting ? 'Injecting...' : 'Run Failure Injection'}
-              </button>
-            </form>
-          </section>
-        ) : null}
-
-        {injectedRun ? (
-          <section className="card">
-            <h2>Injected Run Status</h2>
-            <div className="button-row">
-              <span className={`pill ${injectedRun.status === 'completed' ? 'pill-accent' : ''}`}>
-                {injectedRun.status}
-              </span>
-              <Link className="button button-secondary" href={`/runs/${injectedRun.id}`}>
-                Open Injected Run
-              </Link>
-            </div>
-            {injectedRun.status === 'failed' ? (
-              <p className="error" style={{ marginTop: '0.6rem' }}>
-                {injectedRun.failureReason || 'Failure injection run failed.'}
-              </p>
-            ) : null}
-            {injectedRun.status !== 'completed' && injectedRun.status !== 'failed' ? (
-              <p className="muted" style={{ marginTop: '0.6rem' }}>
-                Run is processing. This section auto-refreshes.
-              </p>
-            ) : null}
-          </section>
-        ) : null}
-
-        {baselineMetrics && injectedMetrics ? (
-          <section className="card">
-            <h2>Before vs After Delta</h2>
-            <div className="metric-grid">
-              <article className="metric-card">
-                <p className="metric-value">{Math.round(baselineMetrics.throughputRps).toLocaleString()}</p>
-                <p className="muted">Baseline Throughput RPS</p>
-              </article>
-              <article className="metric-card">
-                <p className="metric-value">{Math.round(injectedMetrics.throughputRps).toLocaleString()}</p>
-                <p className="muted">
-                  Injected Throughput RPS ({percentageChange(baselineMetrics.throughputRps, injectedMetrics.throughputRps)})
-                </p>
-              </article>
-              <article className="metric-card">
-                <p className="metric-value">{baselineMetrics.p95LatencyMs.toFixed(1)}ms</p>
-                <p className="muted">Baseline p95</p>
-              </article>
-              <article className="metric-card">
-                <p className="metric-value">{injectedMetrics.p95LatencyMs.toFixed(1)}ms</p>
-                <p className="muted">
-                  Injected p95 ({deltaLabel(baselineMetrics.p95LatencyMs, injectedMetrics.p95LatencyMs, 'ms')})
-                </p>
-              </article>
-              <article className="metric-card">
-                <p className="metric-value">{baselineMetrics.errorRatePercent.toFixed(2)}%</p>
-                <p className="muted">Baseline Error Rate</p>
-              </article>
-              <article className="metric-card">
-                <p className="metric-value">{injectedMetrics.errorRatePercent.toFixed(2)}%</p>
-                <p className="muted">
-                  Injected Error Rate ({deltaLabel(baselineMetrics.errorRatePercent, injectedMetrics.errorRatePercent, '%')})
-                </p>
-              </article>
-            </div>
-          </section>
-        ) : null}
-
-        {injectedRun?.blastRadius ? (
-          <section className="card">
-            <h2>Blast Radius Summary</h2>
-            <p className="muted">
-              Impacted: {injectedRun.blastRadius.impactedCount} components • Critical:{' '}
-              {injectedRun.blastRadius.criticalCount} • Estimated user impact:{' '}
-              {injectedRun.blastRadius.estimatedUserImpactPercent.toFixed(2)}%
+            <p style={{ marginTop: 0 }}>
+              <Link href={`/runs/${baselineRunId}`}>Back to Baseline Run</Link>
             </p>
-            <p>{injectedRun.blastRadius.summary}</p>
-            <div className="list-grid">
-              {injectedRun.blastRadius.impactedComponents.map((component) => (
-                <article key={`${component.componentId}-${component.reason}`} className="list-item">
-                  <div className="list-item-header">
-                    <h3 style={{ marginBottom: 0 }}>{component.componentLabel}</h3>
-                    <span className="pill">{component.severity}</span>
-                  </div>
-                  <p className="muted" style={{ marginTop: '0.25rem' }}>
-                    {component.componentType}
-                  </p>
-                  <p style={{ marginTop: '0.2rem' }}>{component.reason}</p>
-                </article>
-              ))}
-            </div>
+            <p className="kicker">Failure Injection Lab</p>
+            <h1>War-Room Failure Testing</h1>
+            <p className="subtitle">Inject controlled faults and compare baseline resilience against degraded behavior.</p>
+            {error ? <p className="error">{error}</p> : null}
           </section>
-        ) : null}
+
+          {loadState === 'loading' ? (
+            <section className="card">
+              <div className="button-row">
+                <span className="loading-dot" />
+                <strong>Loading baseline run context...</strong>
+              </div>
+            </section>
+          ) : null}
+
+          {baselineRun && baselineRun.status !== 'completed' ? (
+            <section className="card">
+              <h2>Baseline Not Ready</h2>
+              <p className="muted">Baseline run must be completed before failure injection can start.</p>
+            </section>
+          ) : null}
+
+          {baselineRun?.status === 'completed' ? (
+            <section className="card">
+              <h2>Failure Mode Selector</h2>
+              <div className="mode-grid" style={{ marginBottom: '0.8rem' }}>
+                {MODE_CARDS.map((card) => (
+                  <button
+                    key={card.mode}
+                    type="button"
+                    className={`mode-card ${mode === card.mode ? 'active' : ''}`}
+                    onClick={() => setMode(card.mode)}
+                  >
+                    <div className="list-item-header">
+                      <strong>{card.title}</strong>
+                      <span className="pill">{card.icon}</span>
+                    </div>
+                    <p className="muted" style={{ marginBottom: 0, marginTop: '0.35rem' }}>
+                      {card.description}
+                    </p>
+                  </button>
+                ))}
+              </div>
+
+              <form onSubmit={submitFailureInjection}>
+                {(mode === 'node-down' || mode === 'dependency-lag') && (
+                  <label className="field">
+                    Target Component
+                    <select value={targetComponentId} onChange={(event) => setTargetComponentId(event.target.value)}>
+                      {componentOptions.map((component) => (
+                        <option key={component.id} value={component.id}>
+                          {component.label} ({component.type})
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+
+                {mode === 'az-down' && (
+                  <label className="field">
+                    AZ
+                    <select value={azName} onChange={(event) => setAzName(event.target.value as 'az-a' | 'az-b')}>
+                      <option value="az-a">AZ-A</option>
+                      <option value="az-b">AZ-B</option>
+                    </select>
+                  </label>
+                )}
+
+                {mode === 'dependency-lag' && (
+                  <label className="field">
+                    Added Lag (ms)
+                    <input
+                      type="number"
+                      min={50}
+                      max={5000}
+                      step={10}
+                      value={lagMs}
+                      onChange={(event) => setLagMs(Number(event.target.value) || 250)}
+                    />
+                  </label>
+                )}
+
+                {mode === 'traffic-surge' && (
+                  <label className="field">
+                    Surge Multiplier
+                    <input
+                      type="number"
+                      min={1.1}
+                      max={10}
+                      step={0.1}
+                      value={surgeMultiplier}
+                      onChange={(event) => setSurgeMultiplier(Number(event.target.value) || 2.2)}
+                    />
+                  </label>
+                )}
+
+                <button className="button" type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? 'Injecting...' : 'Run Failure Injection'}
+                </button>
+              </form>
+            </section>
+          ) : null}
+
+          {injectedRun ? (
+            <section className="card">
+              <h2>Injected Run Status</h2>
+              <div className="button-row">
+                <span className={`pill ${injectedRun.status === 'completed' ? 'pill-accent' : 'pill-warning'}`}>
+                  {injectedRun.status}
+                </span>
+                <Link className="button button-secondary" href={`/runs/${injectedRun.id}`}>
+                  Open Injected Run
+                </Link>
+              </div>
+              {injectedRun.status === 'failed' ? (
+                <p className="error" style={{ marginTop: '0.6rem' }}>
+                  {injectedRun.failureReason || 'Failure injection run failed.'}
+                </p>
+              ) : null}
+              {injectedRun.status !== 'completed' && injectedRun.status !== 'failed' ? (
+                <p className="muted" style={{ marginTop: '0.6rem' }}>
+                  Run is processing. This section auto-refreshes.
+                </p>
+              ) : null}
+            </section>
+          ) : null}
+
+          {baselineMetrics && injectedMetrics ? (
+            <section className="card">
+              <h2>Before / After Comparison</h2>
+              <div className="page-grid-two">
+                <article className="list-item">
+                  <h3>Baseline</h3>
+                  <p className="muted">Throughput: {Math.round(baselineMetrics.throughputRps).toLocaleString()} RPS</p>
+                  <p className="muted">p95: {baselineMetrics.p95LatencyMs.toFixed(1)} ms</p>
+                  <p className="muted">Error: {baselineMetrics.errorRatePercent.toFixed(2)}%</p>
+                </article>
+
+                <article className="list-item">
+                  <h3>Injected</h3>
+                  <p className="muted">Throughput: {Math.round(injectedMetrics.throughputRps).toLocaleString()} RPS</p>
+                  <p className="muted">p95: {injectedMetrics.p95LatencyMs.toFixed(1)} ms</p>
+                  <p className="muted">Error: {injectedMetrics.errorRatePercent.toFixed(2)}%</p>
+                </article>
+              </div>
+
+              <div className="metric-grid" style={{ marginTop: '0.75rem' }}>
+                <article className="metric-card">
+                  <p className={`metric-value ${deltaClass(baselineMetrics.throughputRps, injectedMetrics.throughputRps, true)}`}>
+                    {deltaArrow(baselineMetrics.throughputRps, injectedMetrics.throughputRps)}{' '}
+                    {percentageChange(baselineMetrics.throughputRps, injectedMetrics.throughputRps)}
+                  </p>
+                  <p className="muted">Throughput delta</p>
+                </article>
+                <article className="metric-card">
+                  <p className={`metric-value ${deltaClass(baselineMetrics.p95LatencyMs, injectedMetrics.p95LatencyMs, false)}`}>
+                    {deltaArrow(baselineMetrics.p95LatencyMs, injectedMetrics.p95LatencyMs)}{' '}
+                    {deltaLabel(baselineMetrics.p95LatencyMs, injectedMetrics.p95LatencyMs, 'ms')}
+                  </p>
+                  <p className="muted">Latency delta</p>
+                </article>
+                <article className="metric-card">
+                  <p className={`metric-value ${deltaClass(baselineMetrics.errorRatePercent, injectedMetrics.errorRatePercent, false)}`}>
+                    {deltaArrow(baselineMetrics.errorRatePercent, injectedMetrics.errorRatePercent)}{' '}
+                    {deltaLabel(baselineMetrics.errorRatePercent, injectedMetrics.errorRatePercent, '%')}
+                  </p>
+                  <p className="muted">Error-rate delta</p>
+                </article>
+                <article className="metric-card">
+                  <p className="metric-value">
+                    {baselineMetrics.saturated ? 'Sat' : 'Healthy'} {'->'}{' '}
+                    {injectedMetrics.saturated ? 'Sat' : 'Healthy'}
+                  </p>
+                  <p className="muted">Saturation state</p>
+                </article>
+              </div>
+            </section>
+          ) : null}
+
+          {injectedRun?.blastRadius ? (
+            <section className="card">
+              <h2>Blast Radius Visualization</h2>
+              <p className="muted">
+                Impacted: {injectedRun.blastRadius.impactedCount} components • Critical:{' '}
+                {injectedRun.blastRadius.criticalCount} • Estimated user impact:{' '}
+                {injectedRun.blastRadius.estimatedUserImpactPercent.toFixed(2)}%
+              </p>
+              <p>{injectedRun.blastRadius.summary}</p>
+
+              <div className="overlay-grid">
+                {injectedRun.blastRadius.impactedComponents.map((component) => (
+                  <article key={`${component.componentId}-${component.reason}`} className={`overlay-chip ${component.severity}`}>
+                    <strong>{component.componentLabel}</strong>
+                    <p className="muted" style={{ marginTop: '0.2rem', marginBottom: '0.15rem' }}>
+                      {component.componentType}
+                    </p>
+                    <p style={{ marginBottom: 0 }}>{component.reason}</p>
+                  </article>
+                ))}
+              </div>
+            </section>
+          ) : null}
+        </div>
       </div>
     </main>
   );

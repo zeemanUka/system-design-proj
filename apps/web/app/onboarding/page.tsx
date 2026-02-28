@@ -1,16 +1,18 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { API_BASE_URL } from '@/lib/api';
 import { getAuthToken } from '@/lib/auth-token';
 import { parseCommaSeparated } from '@/lib/parse-list';
+
+const LEVEL_OPTIONS = ['beginner', 'intermediate', 'advanced'] as const;
 
 export default function OnboardingPage() {
   const router = useRouter();
   const [role, setRole] = useState('Software Engineer');
   const [targetCompanies, setTargetCompanies] = useState('Meta, Google');
-  const [level, setLevel] = useState<'beginner' | 'intermediate' | 'advanced'>('intermediate');
+  const [level, setLevel] = useState<(typeof LEVEL_OPTIONS)[number]>('intermediate');
   const [scenarioPreferences, setScenarioPreferences] = useState('feed, chat, storage');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -63,13 +65,16 @@ export default function OnboardingPage() {
     }
   }
 
+  const parsedCompanies = useMemo(() => parseCommaSeparated(targetCompanies), [targetCompanies]);
+  const parsedPreferences = useMemo(() => parseCommaSeparated(scenarioPreferences), [scenarioPreferences]);
+
   return (
     <main>
       <div className="page-grid-two">
         <section className="card">
           <p className="kicker">Onboarding</p>
           <h1>Set your interview targets</h1>
-          <p className="subtitle">This profile personalizes your scenario feed and evaluation path.</p>
+          <p className="subtitle">This profile tunes scenario recommendations and grading guidance to your goals.</p>
 
           <form onSubmit={onSubmit}>
             <label className="field">
@@ -79,35 +84,34 @@ export default function OnboardingPage() {
 
             <label className="field">
               Target companies (comma-separated)
-              <input
-                value={targetCompanies}
-                onChange={(event) => setTargetCompanies(event.target.value)}
-                required
-              />
+              <input value={targetCompanies} onChange={(event) => setTargetCompanies(event.target.value)} required />
             </label>
 
-            <label className="field">
+            <div className="field">
               Experience level
-              <select value={level} onChange={(event) => setLevel(event.target.value as typeof level)}>
-                <option value="beginner">Beginner</option>
-                <option value="intermediate">Intermediate</option>
-                <option value="advanced">Advanced</option>
-              </select>
-            </label>
+              <div className="filter-row">
+                {LEVEL_OPTIONS.map((value) => (
+                  <button
+                    className={`filter-chip ${level === value ? 'active' : ''}`}
+                    key={value}
+                    onClick={() => setLevel(value)}
+                    type="button"
+                  >
+                    {value}
+                  </button>
+                ))}
+              </div>
+            </div>
 
             <label className="field">
               Preferred scenarios (comma-separated)
-              <input
-                value={scenarioPreferences}
-                onChange={(event) => setScenarioPreferences(event.target.value)}
-                required
-              />
+              <input value={scenarioPreferences} onChange={(event) => setScenarioPreferences(event.target.value)} required />
             </label>
 
             {error ? <p className="error">{error}</p> : null}
 
             <button className="button" disabled={isSubmitting} type="submit">
-              {isSubmitting ? 'Saving...' : 'Continue to dashboard'}
+              {isSubmitting ? 'Saving...' : 'Continue to Dashboard'}
             </button>
           </form>
         </section>
@@ -117,19 +121,32 @@ export default function OnboardingPage() {
           <div className="list-grid">
             <div className="list-item">
               <p className="pill pill-accent">Role</p>
-              <h3 style={{ marginTop: '0.4rem' }}>{role || 'Your role'}</h3>
+              <h3 style={{ marginTop: '0.35rem' }}>{role || 'Your role'}</h3>
             </div>
+
             <div className="list-item">
               <p className="pill pill-accent">Target Companies</p>
-              <p className="muted" style={{ marginTop: '0.45rem' }}>
-                {targetCompanies || 'Set your targets'}
-              </p>
+              {parsedCompanies.length === 0 ? <p className="muted">No companies set yet.</p> : null}
+              {parsedCompanies.map((company) => (
+                <p className="muted" key={company} style={{ marginBottom: '0.2rem' }}>
+                  - {company}
+                </p>
+              ))}
             </div>
+
             <div className="list-item">
               <p className="pill pill-accent">Scenario Preferences</p>
-              <p className="muted" style={{ marginTop: '0.45rem' }}>
-                {scenarioPreferences || 'Add preferred domains'}
-              </p>
+              {parsedPreferences.length === 0 ? <p className="muted">No preferences set yet.</p> : null}
+              {parsedPreferences.map((preference) => (
+                <p className="muted" key={preference} style={{ marginBottom: '0.2rem' }}>
+                  - {preference}
+                </p>
+              ))}
+            </div>
+
+            <div className="list-item">
+              <p className="pill pill-accent">Level</p>
+              <h3 style={{ marginTop: '0.35rem' }}>{level}</h3>
             </div>
           </div>
         </section>
