@@ -16,3 +16,9 @@
 - Prevention rule: never key large layout wrappers (`section`, page containers, workspace grids) with frequently changing state used for local UI bookkeeping.
 - Prevention rule: for transitions, use class toggles and CSS animation triggers instead of `key`-based remounts of major subtrees.
 - Prevention rule: when adding undo/redo stacks with refs, trigger lightweight rerenders without remounting view roots.
+
+## 2026-02-28 - Guard Prisma Major-Version Mismatch
+- Correction pattern: user hit Prisma error saying datasource `url` is unsupported while project schema intentionally uses Prisma 6 format.
+- Prevention rule: for Prisma commands, prefer workspace scripts (`npm --workspace @sdc/api run ...`) over direct/global CLI usage.
+- Prevention rule: when a Prisma schema error seems inconsistent with repo code, verify local Prisma version first (`npx prisma -v`) before editing schema.
+- Prevention rule: add explicit troubleshooting docs for Prisma 6/7 version mismatch and editor plugin version selection.

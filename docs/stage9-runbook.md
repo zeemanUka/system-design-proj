@@ -31,7 +31,7 @@ docker compose -f infra/docker/docker-compose.yml up -d
 2. Ensure Prisma client + schema sync:
 ```bash
 npm --workspace @sdc/api run prisma:generate
-npx prisma db push --schema apps/api/prisma/schema.prisma --accept-data-loss
+npm --workspace @sdc/api run prisma:db:push -- --accept-data-loss
 ```
 3. Start services:
 ```bash

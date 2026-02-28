@@ -47,7 +47,7 @@ docker compose -f infra/docker/docker-compose.yml up -d
 4. Sync Prisma client/schema and seed:
 ```bash
 npm --workspace @sdc/api run prisma:generate
-npx prisma db push --schema apps/api/prisma/schema.prisma
+npm --workspace @sdc/api run prisma:db:push
 npm --workspace @sdc/api run prisma:seed
 ```
 
@@ -164,7 +164,14 @@ docker compose -f infra/docker/docker-compose.yml up -d
   - Ensure both workers are running and Redis is reachable.
 - Prisma/runtime schema mismatch:
   - Re-run `npm --workspace @sdc/api run prisma:generate`
-  - Re-run `npx prisma db push --schema apps/api/prisma/schema.prisma`
+  - Re-run `npm --workspace @sdc/api run prisma:db:push`
+- Prisma validation error: `The datasource property "url" is no longer supported ...`
+  - This repo is currently pinned to Prisma `6.x`; keep `url = env("DATABASE_URL")` in `apps/api/prisma/schema.prisma`.
+  - Run Prisma only through workspace scripts to guarantee local version usage:
+    - `npm --workspace @sdc/api run prisma:validate`
+    - `npm --workspace @sdc/api run prisma:generate`
+    - `npm --workspace @sdc/api run prisma:db:push`
+  - If this is shown only in VS Code, use Command Palette and run `Prisma: Switch Prisma version`, then select `v6`.
 - Grading fails with provider errors:
   - Check `AI_PROVIDER`, `AI_BASE_URL`, and `AI_API_KEY` values in `.env`.
 - Grafana dashboard missing:

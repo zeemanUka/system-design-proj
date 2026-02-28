@@ -313,3 +313,34 @@ Deliver Stage 10 GA productization features end-to-end:
 - `node --check infra/scripts/stage10-smoke.mjs` passed
 - `node --check infra/scripts/stage10-retention.mjs` passed
 - `node --check infra/scripts/stage10-analytics-summary.mjs` passed
+
+---
+
+# Prisma Tooling Mismatch Fix (2026-02-28)
+
+## Scope
+Resolve Prisma `datasource.url` false-positive errors caused by Prisma 7 tooling against a Prisma 6 codebase.
+
+## Plan
+- [x] 1. Confirm effective Prisma version used by workspace commands
+- [x] 2. Add explicit Prisma workspace scripts to avoid ambiguous `npx` paths
+- [x] 3. Update setup and runbook docs to use workspace scripts
+- [x] 4. Add troubleshooting guidance for Prisma 7 vs Prisma 6 mismatch
+- [x] 5. Verify `prisma:validate`, `prisma:generate`, and `prisma:db:push` commands
+
+## Review
+- Root cause: the project runs Prisma `6.19.2`; the reported error text comes from Prisma 7 schema rules.
+- Updated API Prisma scripts in `apps/api/package.json` to execute from repo root (stable `.env` loading):
+  - `prisma:validate`
+  - `prisma:generate`
+  - `prisma:db:push`
+  - `prisma:migrate`
+  - `prisma:seed`
+- Updated docs to use workspace scripts instead of direct `npx prisma ...`:
+  - `README.md`
+  - `docs/stage9-runbook.md`
+- Added a troubleshooting entry in `README.md` for the specific error and VS Code version switching path.
+- Verification completed with local workspace Prisma commands:
+  - `npm --workspace @sdc/api run prisma:validate`
+  - `npm --workspace @sdc/api run prisma:generate`
+  - `npm --workspace @sdc/api run prisma:db:push -- --accept-data-loss`
