@@ -57,7 +57,6 @@ export default function ComparePage() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isComparing, setIsComparing] = useState(false);
-  const [transitionKey, setTransitionKey] = useState(0);
 
   async function loadCompare(nextBaselineId: string, nextCandidateId: string) {
     const token = getAuthToken();
@@ -103,7 +102,6 @@ export default function ComparePage() {
 
       const payload = (await response.json()) as VersionCompareResponse;
       setCompare(payload.compare);
-      setTransitionKey((current) => current + 1);
     } catch {
       setError('Unable to reach server.');
     } finally {
@@ -264,7 +262,7 @@ export default function ComparePage() {
         ) : null}
 
         {compare ? (
-          <div className="page-stack compare-swap" key={transitionKey}>
+          <div className="page-stack compare-swap">
             <section className="card">
               <h2>Side-by-Side Versions</h2>
               <div className="page-grid-two">

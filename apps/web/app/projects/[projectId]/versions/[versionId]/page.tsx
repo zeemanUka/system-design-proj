@@ -164,7 +164,7 @@ export default function VersionWorkspacePage() {
   const [zoom, setZoom] = useState(1);
   const [showMinimap, setShowMinimap] = useState(true);
   const [freshNodeIds, setFreshNodeIds] = useState<string[]>([]);
-  const [historyTick, setHistoryTick] = useState(0);
+  const [, setHistoryTick] = useState(0);
 
   const undoStackRef = useRef<WorkspaceSnapshot[]>([]);
   const redoStackRef = useRef<WorkspaceSnapshot[]>([]);
@@ -670,7 +670,7 @@ export default function VersionWorkspacePage() {
           {warnings.length > 0 ? <p className="warning-toast">{warnings.length} validation warning(s) detected.</p> : null}
         </section>
 
-        <div className="workspace-grid" key={historyTick}>
+        <div className="workspace-grid">
           <section className="card">
             <h2>Component Palette</h2>
             <p className="muted">Drag-ready building blocks with recommended defaults.</p>

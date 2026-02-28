@@ -10,3 +10,9 @@
 - Prevention rule: after changing API security/CORS config, explicitly test `OPTIONS` preflight for `PATCH/PUT/DELETE` with `Authorization` and `Content-Type` headers.
 - Prevention rule: include explicit CORS methods list with `PATCH` and `OPTIONS`; do not rely on defaults.
 - Prevention rule: default local allowed origins must include both `http://localhost:3000` and `http://127.0.0.1:3000`.
+
+## 2026-02-28 - Avoid Forced Remounts on User Click Paths
+- Correction pattern: user reported visible quick page redraw/flicker on click across dashboard surfaces.
+- Prevention rule: never key large layout wrappers (`section`, page containers, workspace grids) with frequently changing state used for local UI bookkeeping.
+- Prevention rule: for transitions, use class toggles and CSS animation triggers instead of `key`-based remounts of major subtrees.
+- Prevention rule: when adding undo/redo stacks with refs, trigger lightweight rerenders without remounting view roots.
