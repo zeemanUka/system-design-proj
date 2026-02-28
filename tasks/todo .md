@@ -422,3 +422,45 @@ Fix CI typecheck/build failures caused by missing generated Prisma client types 
 - Verification:
   - `npm run typecheck` fails immediately after clean `npm ci` (before generate).
   - `npm --workspace @sdc/api run prisma:generate && npm run typecheck` passes.
+
+---
+
+# Security Hardening Follow-Up (2026-02-28)
+
+## Scope
+Remediate additional security gaps discovered after the first audit pass, focused on cookie-auth safety, CSRF controls, origin hardening, session token exposure, and auth-path resiliency.
+
+## Plan
+- [x] 1. Migrate web/API auth flow to cookie-centric usage without exposing JWT in browser storage or payloads
+- [x] 2. Add CSRF origin validation for cookie-authenticated state-changing API requests
+- [x] 3. Enforce stricter production behavior for secure cookie handling and allowed CORS origin defaults
+- [x] 4. Tighten auth rate-limit behavior when Redis is unavailable (production fail-closed option)
+- [x] 5. Strengthen middleware auth checks to validate JWT signature/claims, not just cookie presence
+- [x] 6. Update docs/env references and run full verification
+
+## Review
+- Cookie/session hardening:
+  - API auth endpoints now return user profile only and set cookie server-side; no token in response body.
+  - Frontend auth helper no longer stores JWT value client-side.
+  - Added centralized `apiFetch` helper that defaults to `credentials: include` and strips `Authorization` headers.
+- CSRF and origin protections:
+  - `JwtAuthGuard` now distinguishes cookie vs bearer auth source.
+  - For cookie-authenticated `POST/PUT/PATCH/DELETE`, guard validates `Origin` against configured allowed origins.
+- Production configuration hardening:
+  - Auth cookies are always `Secure` in production regardless of env override.
+  - CORS parsing no longer injects localhost defaults in production when env is absent.
+- Auth-rate-limit resiliency:
+  - Added `AUTH_RATE_LIMIT_REQUIRE_REDIS` control.
+  - In production (default), auth endpoints fail with `503` if Redis-backed limiting is unavailable instead of falling back to per-process in-memory.
+- Frontend middleware hardening:
+  - Middleware now verifies HS256 JWT signature and required claims (`sub`, `tv`, `exp`) using `JWT_SECRET` instead of trusting cookie presence.
+- Docs/config updates:
+  - Added `AUTH_RATE_LIMIT_REQUIRE_REDIS` to `.env.example` and README.
+  - Documented requirement that `JWT_SECRET` must be present for both API and web middleware.
+
+### Verification
+- `npm run typecheck` passed.
+- `npm run lint` passed.
+- `npm run test` passed.
+- `git log --all -- .env` returned no commits for `.env` (no tracked history).
+- Confirmed observability ingestion endpoint remains guard-protected (`@UseGuards(JwtAuthGuard)`).

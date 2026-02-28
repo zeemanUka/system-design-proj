@@ -11,6 +11,7 @@ type BucketState = {
 export class RateLimitGuard implements CanActivate {
   private readonly buckets = new Map<string, BucketState>();
   private readonly redisPrefix: string;
+  private readonly requireRedisForAuth: boolean;
   private readonly windowMs: number;
   private readonly maxRequests: number;
   private readonly authWindowMs: number;
@@ -20,6 +21,10 @@ export class RateLimitGuard implements CanActivate {
 
   constructor() {
     this.redisPrefix = process.env.RATE_LIMIT_REDIS_PREFIX?.trim() || 'sdc:ratelimit';
+    this.requireRedisForAuth = this.parseBooleanEnv(
+      'AUTH_RATE_LIMIT_REQUIRE_REDIS',
+      process.env.NODE_ENV === 'production'
+    );
     this.windowMs = this.parseEnv('RATE_LIMIT_WINDOW_MS', 60_000, 1_000, 3_600_000);
     this.maxRequests = this.parseEnv('RATE_LIMIT_MAX_REQUESTS', 120, 1, 10_000);
     this.authWindowMs = this.parseEnv('AUTH_RATE_LIMIT_WINDOW_MS', 60_000, 1_000, 3_600_000);
@@ -72,6 +77,10 @@ export class RateLimitGuard implements CanActivate {
     const redisBucket = await this.incrementRedisBucket(key, scope, now, windowMs);
     if (redisBucket) {
       return redisBucket;
+    }
+
+    if (scope === 'auth' && this.requireRedisForAuth) {
+      throw new HttpException('Authentication is temporarily unavailable.', HttpStatus.SERVICE_UNAVAILABLE);
     }
 
     return this.incrementInMemoryBucket(`${scope}:${key}`, now, windowMs);
@@ -150,5 +159,19 @@ export class RateLimitGuard implements CanActivate {
       return fallback;
     }
     return Math.min(max, Math.max(min, Math.floor(raw)));
+  }
+
+  private parseBooleanEnv(name: string, fallback: boolean): boolean {
+    const raw = process.env[name]?.trim().toLowerCase();
+    if (!raw) {
+      return fallback;
+    }
+    if (raw === '1' || raw === 'true' || raw === 'yes') {
+      return true;
+    }
+    if (raw === '0' || raw === 'false' || raw === 'no') {
+      return false;
+    }
+    return fallback;
   }
 }

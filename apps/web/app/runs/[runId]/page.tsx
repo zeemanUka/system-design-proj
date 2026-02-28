@@ -4,7 +4,7 @@ import { SimulationRun, SimulationRunResponse } from '@sdc/shared-types';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
-import { API_BASE_URL } from '@/lib/api';
+import { API_BASE_URL, apiFetch } from '@/lib/api';
 import { clearAuthToken, getAuthToken } from '@/lib/auth-token';
 
 type LoadState = 'loading' | 'ready' | 'error';
@@ -78,7 +78,7 @@ export default function SimulationRunPage() {
 
     async function fetchRun() {
       try {
-        const response = await fetch(`${API_BASE_URL}/runs/${runId}`, {
+        const response = await apiFetch(`${API_BASE_URL}/runs/${runId}`, {
           headers: {
             Authorization: `Bearer ${token}`
           }

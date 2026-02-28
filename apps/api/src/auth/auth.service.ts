@@ -1,6 +1,6 @@
 import { BadRequestException, Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { User } from '@prisma/client';
-import { AuthSuccessResponse, LoginRequest, SignupRequest, UserProfile } from '@sdc/shared-types';
+import { LoginRequest, SignupRequest, UserProfile } from '@sdc/shared-types';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -10,11 +10,16 @@ import { isPasswordStrong } from './password.util.js';
 const DEFAULT_MAX_FAILED_LOGIN_ATTEMPTS = 5;
 const DEFAULT_LOCKOUT_MINUTES = 15;
 
+export type AuthTokensAndProfile = {
+  token: string;
+  user: UserProfile;
+};
+
 @Injectable()
 export class AuthService {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
-  async signup(input: SignupRequest): Promise<AuthSuccessResponse> {
+  async signup(input: SignupRequest): Promise<AuthTokensAndProfile> {
     if (!isPasswordStrong(input.password)) {
       throw new BadRequestException(
         'Password must be at least 12 characters and include uppercase, lowercase, number, and symbol.'
@@ -26,7 +31,7 @@ export class AuthService {
     });
 
     if (existingUser) {
-      throw new BadRequestException('Email is already registered.');
+      throw new BadRequestException('Unable to create account with provided credentials.');
     }
 
     const passwordHash = await bcrypt.hash(input.password, 12);
@@ -44,7 +49,7 @@ export class AuthService {
     };
   }
 
-  async login(input: LoginRequest): Promise<AuthSuccessResponse> {
+  async login(input: LoginRequest): Promise<AuthTokensAndProfile> {
     const user = await this.prisma.user.findUnique({
       where: { email: input.email.toLowerCase() }
     });
@@ -55,7 +60,7 @@ export class AuthService {
 
     const now = new Date();
     if (user.lockoutUntil && user.lockoutUntil > now) {
-      throw new UnauthorizedException('Account temporarily locked. Please retry later.');
+      throw new UnauthorizedException('Invalid credentials.');
     }
 
     const isMatch = await bcrypt.compare(input.password, user.passwordHash);

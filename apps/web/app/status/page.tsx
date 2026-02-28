@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { API_BASE_URL } from '@/lib/api';
+import { API_BASE_URL, apiFetch } from '@/lib/api';
 
 type StatusCheck = {
   id: string;
@@ -65,9 +65,9 @@ export default function StatusPage() {
 
     void (async () => {
       const results = await Promise.all([
-        runCheck('api-read', 'API read path', () => fetch(`${API_BASE_URL}/scenarios`)),
+        runCheck('api-read', 'API read path', () => apiFetch(`${API_BASE_URL}/scenarios`)),
         runCheck('api-telemetry', 'Frontend telemetry ingest', () =>
-          fetch(`${API_BASE_URL}/observability/frontend-metrics`, {
+          apiFetch(`${API_BASE_URL}/observability/frontend-metrics`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json'

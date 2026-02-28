@@ -3,7 +3,7 @@
 import { AuthSuccessResponse } from '@sdc/shared-types';
 import { useRouter } from 'next/navigation';
 import { FormEvent, useMemo, useState } from 'react';
-import { API_BASE_URL } from '@/lib/api';
+import { API_BASE_URL, apiFetch } from '@/lib/api';
 import { setAuthToken } from '@/lib/auth-token';
 
 type Mode = 'signup' | 'login';
@@ -24,9 +24,8 @@ export default function AuthPage() {
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/${mode}`, {
+      const response = await apiFetch(`${API_BASE_URL}/auth/${mode}`, {
         method: 'POST',
-        credentials: 'include',
         headers: {
           'Content-Type': 'application/json'
         },
@@ -34,12 +33,12 @@ export default function AuthPage() {
       });
 
       const payload = (await response.json()) as Partial<AuthSuccessResponse> & { message?: string };
-      if (!response.ok || !payload.token || !payload.user) {
+      if (!response.ok || !payload.user) {
         setError(payload.message || 'Authentication failed.');
         return;
       }
 
-      setAuthToken(payload.token);
+      setAuthToken();
 
       if (payload.user.onboardingCompleted) {
         router.push('/dashboard');

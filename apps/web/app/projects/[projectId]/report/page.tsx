@@ -11,7 +11,7 @@ import {
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { API_BASE_URL } from '@/lib/api';
+import { API_BASE_URL, apiFetch } from '@/lib/api';
 import { clearAuthToken, getAuthToken } from '@/lib/auth-token';
 
 function metricValue(value: number | null, suffix = ''): string {
@@ -90,7 +90,7 @@ export default function ProjectReportPage() {
         query.set('candidateVersionId', nextCandidateId);
       }
 
-      const response = await fetch(
+      const response = await apiFetch(
         `${API_BASE_URL}/projects/${projectId}/report${query.toString() ? `?${query.toString()}` : ''}`,
         {
           headers: {
@@ -129,7 +129,7 @@ export default function ProjectReportPage() {
       return;
     }
 
-    const response = await fetch(`${API_BASE_URL}${path}`, {
+    const response = await apiFetch(`${API_BASE_URL}${path}`, {
       headers: {
         Authorization: `Bearer ${token}`
       }
@@ -166,7 +166,7 @@ export default function ProjectReportPage() {
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/projects/${projectId}/report/exports`, {
+      const response = await apiFetch(`${API_BASE_URL}/projects/${projectId}/report/exports`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -217,7 +217,7 @@ export default function ProjectReportPage() {
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/projects/${projectId}/report/shares`, {
+      const response = await apiFetch(`${API_BASE_URL}/projects/${projectId}/report/shares`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -264,7 +264,7 @@ export default function ProjectReportPage() {
     setError(null);
 
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `${API_BASE_URL}/projects/${projectId}/report/shares/${encodeURIComponent(exportRecord.shareToken)}/revoke`,
         {
           method: 'PATCH',
@@ -319,7 +319,7 @@ export default function ProjectReportPage() {
 
     void (async () => {
       try {
-        const historyResponse = await fetch(`${API_BASE_URL}/projects/${projectId}/history`, {
+        const historyResponse = await apiFetch(`${API_BASE_URL}/projects/${projectId}/history`, {
           headers: {
             Authorization: `Bearer ${token}`
           }

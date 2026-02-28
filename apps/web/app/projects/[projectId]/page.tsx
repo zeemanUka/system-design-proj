@@ -4,7 +4,7 @@ import { ProjectHistoryResponse, ProjectMembersResponse } from '@sdc/shared-type
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
-import { API_BASE_URL } from '@/lib/api';
+import { API_BASE_URL, apiFetch } from '@/lib/api';
 import { clearAuthToken, getAuthToken } from '@/lib/auth-token';
 
 export default function ProjectHistoryPage() {
@@ -30,12 +30,12 @@ export default function ProjectHistoryPage() {
     void (async () => {
       try {
         const [historyResponse, membersResponse] = await Promise.all([
-          fetch(`${API_BASE_URL}/projects/${projectId}/history`, {
+          apiFetch(`${API_BASE_URL}/projects/${projectId}/history`, {
             headers: {
               Authorization: `Bearer ${token}`
             }
           }),
-          fetch(`${API_BASE_URL}/projects/${projectId}/members`, {
+          apiFetch(`${API_BASE_URL}/projects/${projectId}/members`, {
             headers: {
               Authorization: `Bearer ${token}`
             }
@@ -87,7 +87,7 @@ export default function ProjectHistoryPage() {
 
     try {
       const latestVersion = history.versions[0] ?? null;
-      const response = await fetch(`${API_BASE_URL}/projects/${projectId}/versions`, {
+      const response = await apiFetch(`${API_BASE_URL}/projects/${projectId}/versions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -126,7 +126,7 @@ export default function ProjectHistoryPage() {
       return;
     }
 
-    const response = await fetch(`${API_BASE_URL}/projects/${projectId}/members`, {
+    const response = await apiFetch(`${API_BASE_URL}/projects/${projectId}/members`, {
       headers: {
         Authorization: `Bearer ${token}`
       }
@@ -157,7 +157,7 @@ export default function ProjectHistoryPage() {
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/projects/${projectId}/invites`, {
+      const response = await apiFetch(`${API_BASE_URL}/projects/${projectId}/invites`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -200,7 +200,7 @@ export default function ProjectHistoryPage() {
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/projects/${projectId}/members/${memberId}`, {
+      const response = await apiFetch(`${API_BASE_URL}/projects/${projectId}/members/${memberId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -231,7 +231,7 @@ export default function ProjectHistoryPage() {
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/projects/${projectId}/members/${memberId}`, {
+      const response = await apiFetch(`${API_BASE_URL}/projects/${projectId}/members/${memberId}`, {
         method: 'DELETE',
         headers: {
           Authorization: `Bearer ${token}`

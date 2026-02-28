@@ -4,7 +4,7 @@ import { ProjectSummary, SharedProjectSummary, SharedProjectsResponse, UserProfi
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
-import { API_BASE_URL } from '@/lib/api';
+import { API_BASE_URL, apiFetch } from '@/lib/api';
 import { clearAuthToken, getAuthToken } from '@/lib/auth-token';
 
 function toDisplayName(email: string): string {
@@ -54,17 +54,17 @@ export default function DashboardPage() {
     void (async () => {
       try {
         const [profileResponse, projectsResponse, sharedProjectsResponse] = await Promise.all([
-          fetch(`${API_BASE_URL}/users/me`, {
+          apiFetch(`${API_BASE_URL}/users/me`, {
             headers: {
               Authorization: `Bearer ${token}`
             }
           }),
-          fetch(`${API_BASE_URL}/projects?limit=10`, {
+          apiFetch(`${API_BASE_URL}/projects?limit=10`, {
             headers: {
               Authorization: `Bearer ${token}`
             }
           }),
-          fetch(`${API_BASE_URL}/projects/shared?limit=10`, {
+          apiFetch(`${API_BASE_URL}/projects/shared?limit=10`, {
             headers: {
               Authorization: `Bearer ${token}`
             }

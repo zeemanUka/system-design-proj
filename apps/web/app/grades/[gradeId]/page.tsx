@@ -4,7 +4,7 @@ import { GradeReport, GradeReportResponse } from '@sdc/shared-types';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { CSSProperties, useEffect, useMemo, useState } from 'react';
-import { API_BASE_URL } from '@/lib/api';
+import { API_BASE_URL, apiFetch } from '@/lib/api';
 import { clearAuthToken, getAuthToken } from '@/lib/auth-token';
 
 type LoadState = 'loading' | 'ready' | 'error';
@@ -72,7 +72,7 @@ export default function GradeReportPage() {
 
     async function fetchReport() {
       try {
-        const response = await fetch(`${API_BASE_URL}/grades/${gradeId}`, {
+        const response = await apiFetch(`${API_BASE_URL}/grades/${gradeId}`, {
           headers: {
             Authorization: `Bearer ${token}`
           }
@@ -135,7 +135,7 @@ export default function GradeReportPage() {
     setError(null);
 
     try {
-      const versionResponse = await fetch(`${API_BASE_URL}/projects/${report.projectId}/versions`, {
+      const versionResponse = await apiFetch(`${API_BASE_URL}/projects/${report.projectId}/versions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

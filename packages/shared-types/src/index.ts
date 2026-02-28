@@ -837,7 +837,6 @@ export type TrafficProfilePresetName = keyof typeof trafficProfilePresets;
 export const defaultTrafficProfile: TrafficProfile = trafficProfilePresets['interview-default'];
 
 export type AuthSuccessResponse = {
-  token: string;
   user: UserProfile;
 };
 

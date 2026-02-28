@@ -33,3 +33,9 @@
 - Prevention rule: never set sensitive auth cookies from frontend JavaScript; auth cookies must be API-managed with `HttpOnly` and production `Secure`.
 - Prevention rule: do not allow fallback values for critical auth secrets (`JWT_SECRET`); fail startup when missing.
 - Prevention rule: enforce secret hygiene in CI (`.env` must not be tracked) and avoid insecure default credentials in examples/fallbacks.
+
+## 2026-02-28 - Cookie Auth Requires CSRF/Origin Controls
+- Correction pattern: follow-up security review identified residual risk after moving to cookie-auth flows (token no longer exposed, but CSRF and origin behavior needed explicit hardening).
+- Prevention rule: when auth relies on cookies, enforce origin or CSRF validation for all state-changing routes (`POST/PUT/PATCH/DELETE`) in the auth guard or middleware.
+- Prevention rule: production CORS defaults must never silently allow localhost origins.
+- Prevention rule: middleware must verify JWT signature/claims; never treat cookie presence as authentication.

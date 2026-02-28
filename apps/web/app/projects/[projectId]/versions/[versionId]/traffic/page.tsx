@@ -11,7 +11,7 @@ import {
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
-import { API_BASE_URL } from '@/lib/api';
+import { API_BASE_URL, apiFetch } from '@/lib/api';
 import { clearAuthToken, getAuthToken } from '@/lib/auth-token';
 
 type PresetMeta = {
@@ -87,7 +87,7 @@ export default function TrafficProfilePage() {
 
     void (async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/projects/${projectId}/versions/${versionId}/traffic`, {
+        const response = await apiFetch(`${API_BASE_URL}/projects/${projectId}/versions/${versionId}/traffic`, {
           headers: {
             Authorization: `Bearer ${token}`
           }
@@ -134,7 +134,7 @@ export default function TrafficProfilePage() {
     setIsSaving(true);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/projects/${projectId}/versions/${versionId}/traffic`, {
+      const response = await apiFetch(`${API_BASE_URL}/projects/${projectId}/versions/${versionId}/traffic`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

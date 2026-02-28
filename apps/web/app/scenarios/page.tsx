@@ -3,7 +3,7 @@
 import { CreateProjectResponse, Scenario } from '@sdc/shared-types';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
-import { API_BASE_URL } from '@/lib/api';
+import { API_BASE_URL, apiFetch } from '@/lib/api';
 import { clearAuthToken, getAuthToken } from '@/lib/auth-token';
 
 const DIFFICULTY_FILTERS = ['all', 'beginner', 'intermediate', 'advanced'] as const;
@@ -83,7 +83,7 @@ export default function ScenariosPage() {
 
     void (async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/scenarios`, {
+        const response = await apiFetch(`${API_BASE_URL}/scenarios`, {
           headers: {
             Authorization: `Bearer ${token}`
           }
@@ -121,7 +121,7 @@ export default function ScenariosPage() {
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/projects`, {
+      const response = await apiFetch(`${API_BASE_URL}/projects`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

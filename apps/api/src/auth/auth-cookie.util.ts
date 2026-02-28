@@ -26,13 +26,13 @@ function parseBooleanEnv(value: string | undefined): boolean | undefined {
 }
 
 function shouldUseSecureCookie(request: FastifyRequest): boolean {
+  if (process.env.NODE_ENV === 'production') {
+    return true;
+  }
+
   const envOverride = parseBooleanEnv(process.env.AUTH_COOKIE_SECURE);
   if (envOverride !== undefined) {
     return envOverride;
-  }
-
-  if (process.env.NODE_ENV === 'production') {
-    return true;
   }
 
   const forwardedProto = request.headers['x-forwarded-proto'];

@@ -4,7 +4,7 @@ import { ProjectHistoryResponse, VersionCompareResponse, VersionCompareResult } 
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
-import { API_BASE_URL } from '@/lib/api';
+import { API_BASE_URL, apiFetch } from '@/lib/api';
 import { clearAuthToken, getAuthToken } from '@/lib/auth-token';
 
 function categoryLabel(value: string): string {
@@ -79,7 +79,7 @@ export default function ComparePage() {
     setError(null);
 
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `${API_BASE_URL}/projects/${projectId}/compare?baselineVersionId=${encodeURIComponent(nextBaselineId)}&candidateVersionId=${encodeURIComponent(nextCandidateId)}`,
         {
           headers: {
@@ -120,7 +120,7 @@ export default function ComparePage() {
 
     void (async () => {
       try {
-        const historyResponse = await fetch(`${API_BASE_URL}/projects/${projectId}/history`, {
+        const historyResponse = await apiFetch(`${API_BASE_URL}/projects/${projectId}/history`, {
           headers: {
             Authorization: `Bearer ${token}`
           }

@@ -19,7 +19,7 @@ import {
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { PointerEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { API_BASE_URL } from '@/lib/api';
+import { API_BASE_URL, apiFetch } from '@/lib/api';
 import { clearAuthToken, getAuthToken } from '@/lib/auth-token';
 
 type SaveState = 'idle' | 'pending' | 'saving' | 'saved' | 'error';
@@ -293,17 +293,17 @@ export default function VersionWorkspacePage() {
     void (async () => {
       try {
         const [versionResponse, collaborationResponse, commentsResponse] = await Promise.all([
-          fetch(`${API_BASE_URL}/projects/${projectId}/versions/${versionId}`, {
+          apiFetch(`${API_BASE_URL}/projects/${projectId}/versions/${versionId}`, {
             headers: {
               Authorization: `Bearer ${token}`
             }
           }),
-          fetch(`${API_BASE_URL}/projects/${projectId}/members`, {
+          apiFetch(`${API_BASE_URL}/projects/${projectId}/members`, {
             headers: {
               Authorization: `Bearer ${token}`
             }
           }),
-          fetch(`${API_BASE_URL}/projects/${projectId}/versions/${versionId}/comments`, {
+          apiFetch(`${API_BASE_URL}/projects/${projectId}/versions/${versionId}/comments`, {
             headers: {
               Authorization: `Bearer ${token}`
             }
@@ -386,7 +386,7 @@ export default function VersionWorkspacePage() {
       void (async () => {
         try {
           setSaveState('saving');
-          const response = await fetch(`${API_BASE_URL}/projects/${projectId}/versions/${versionId}`, {
+          const response = await apiFetch(`${API_BASE_URL}/projects/${projectId}/versions/${versionId}`, {
             method: 'PATCH',
             headers: {
               'Content-Type': 'application/json',
@@ -554,7 +554,7 @@ export default function VersionWorkspacePage() {
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/versions/${versionId}/simulate`, {
+      const response = await apiFetch(`${API_BASE_URL}/versions/${versionId}/simulate`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`
@@ -593,7 +593,7 @@ export default function VersionWorkspacePage() {
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/versions/${versionId}/grade`, {
+      const response = await apiFetch(`${API_BASE_URL}/versions/${versionId}/grade`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`
@@ -643,7 +643,7 @@ export default function VersionWorkspacePage() {
     setCommentError(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/projects/${projectId}/versions/${versionId}/comments`, {
+      const response = await apiFetch(`${API_BASE_URL}/projects/${projectId}/versions/${versionId}/comments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -697,7 +697,7 @@ export default function VersionWorkspacePage() {
       return null;
     }
 
-    const response = await fetch(
+    const response = await apiFetch(
       `${API_BASE_URL}/projects/${projectId}/versions/${versionId}/comments/${commentId}`,
       {
         method: 'PATCH',
@@ -778,7 +778,7 @@ export default function VersionWorkspacePage() {
     setCommentError(null);
 
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `${API_BASE_URL}/projects/${projectId}/versions/${versionId}/comments/${commentId}`,
         {
           method: 'DELETE',

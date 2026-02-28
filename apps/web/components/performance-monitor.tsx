@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef } from 'react';
-import { API_BASE_URL } from '@/lib/api';
+import { API_BASE_URL, apiFetch } from '@/lib/api';
 import { getAuthToken } from '@/lib/auth-token';
 
 type MetricName = 'LCP' | 'INP' | 'CLS' | 'TTFB' | 'FCP' | 'route-change';
@@ -42,7 +42,7 @@ async function sendFrontendMetric(name: MetricName, value: number, path: string,
   };
 
   try {
-    await fetch(`${API_BASE_URL}/observability/frontend-metrics`, {
+    await apiFetch(`${API_BASE_URL}/observability/frontend-metrics`, {
       method: 'POST',
       headers,
       body: JSON.stringify({

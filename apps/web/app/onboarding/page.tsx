@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { API_BASE_URL } from '@/lib/api';
+import { API_BASE_URL, apiFetch } from '@/lib/api';
 import { getAuthToken } from '@/lib/auth-token';
 import { parseCommaSeparated } from '@/lib/parse-list';
 
@@ -37,7 +37,7 @@ export default function OnboardingPage() {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/users/onboarding`, {
+      const response = await apiFetch(`${API_BASE_URL}/users/onboarding`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

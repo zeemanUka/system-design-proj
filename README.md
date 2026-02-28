@@ -81,6 +81,7 @@ Security/observability:
 - `RATE_LIMIT_MAX_REQUESTS`
 - `AUTH_RATE_LIMIT_WINDOW_MS`
 - `AUTH_RATE_LIMIT_MAX_REQUESTS`
+- `AUTH_RATE_LIMIT_REQUIRE_REDIS`
 - `AUTH_MAX_FAILED_ATTEMPTS`
 - `AUTH_LOCKOUT_MINUTES`
 - `AUTH_COOKIE_SECURE`
@@ -96,6 +97,7 @@ AI feedback:
 
 Notes:
 - `.env` must never be committed; CI enforces this.
+- `JWT_SECRET` must be configured for both API and web deployments (web middleware verifies auth cookies).
 - `AUTH_COOKIE_SECURE` is optional; leave empty to auto-detect (`true` in production, `false` in local HTTP dev).
 - `AI_PROVIDER=mock` works without an external API key.
 - For `openai-compatible` or `anthropic`, set a valid `AI_API_KEY` before running the grading worker.
@@ -171,6 +173,9 @@ docker compose -f infra/docker/docker-compose.yml up -d
 - Login keeps failing after repeated attempts:
   - Account lockout is enforced after repeated failed logins.
   - Wait for `AUTH_LOCKOUT_MINUTES` or reset lockout in DB for local testing.
+- Auth routes return `503` in production:
+  - Auth rate limiting is configured to require Redis by default in production.
+  - Ensure `REDIS_URL` is reachable or explicitly set `AUTH_RATE_LIMIT_REQUIRE_REDIS=false` if you accept degraded protection.
 - Prisma/runtime schema mismatch:
   - Re-run `npm --workspace @sdc/api run prisma:generate`
   - Re-run `npm --workspace @sdc/api run prisma:db:push`

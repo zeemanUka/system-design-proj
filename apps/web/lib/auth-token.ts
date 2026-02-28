@@ -1,13 +1,13 @@
-import { API_BASE_URL } from './api';
+import { API_BASE_URL, apiFetch } from './api';
 
-const AUTH_TOKEN_STORAGE_KEY = 'sdc_auth_token';
+const AUTH_STATE_STORAGE_KEY = 'sdc_auth_state';
 
-export function setAuthToken(token: string) {
+export function setAuthToken() {
   if (typeof window === 'undefined') {
     return;
   }
-  window.localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, token);
-  window.sessionStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+  window.localStorage.setItem(AUTH_STATE_STORAGE_KEY, '1');
+  window.sessionStorage.removeItem(AUTH_STATE_STORAGE_KEY);
 }
 
 export function clearAuthToken() {
@@ -15,14 +15,14 @@ export function clearAuthToken() {
     return;
   }
 
-  window.localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
-  window.sessionStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+  window.localStorage.removeItem(AUTH_STATE_STORAGE_KEY);
+  window.sessionStorage.removeItem(AUTH_STATE_STORAGE_KEY);
 
-  void fetch(`${API_BASE_URL}/auth/logout`, {
+  void apiFetch(`${API_BASE_URL}/auth/logout`, {
     method: 'POST',
-    credentials: 'include'
+    cache: 'no-store'
   }).catch(() => {
-    // Best-effort cookie cleanup; local token storage has already been cleared.
+    // Best-effort cookie cleanup; local auth marker has already been cleared.
   });
 }
 
@@ -32,7 +32,7 @@ export function getAuthToken(): string | null {
   }
 
   return (
-    window.localStorage.getItem(AUTH_TOKEN_STORAGE_KEY) ??
-    window.sessionStorage.getItem(AUTH_TOKEN_STORAGE_KEY)
+    window.localStorage.getItem(AUTH_STATE_STORAGE_KEY) ??
+    window.sessionStorage.getItem(AUTH_STATE_STORAGE_KEY)
   );
 }

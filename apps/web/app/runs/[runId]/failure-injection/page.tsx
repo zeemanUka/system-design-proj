@@ -10,7 +10,7 @@ import {
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { API_BASE_URL } from '@/lib/api';
+import { API_BASE_URL, apiFetch } from '@/lib/api';
 import { clearAuthToken, getAuthToken } from '@/lib/auth-token';
 
 type LoadState = 'loading' | 'ready' | 'error';
@@ -116,7 +116,7 @@ export default function FailureInjectionPage() {
 
     async function loadBaselineContext() {
       try {
-        const baselineResponse = await fetch(`${API_BASE_URL}/runs/${baselineRunId}`, {
+        const baselineResponse = await apiFetch(`${API_BASE_URL}/runs/${baselineRunId}`, {
           headers: {
             Authorization: `Bearer ${token}`
           }
@@ -141,7 +141,7 @@ export default function FailureInjectionPage() {
 
         setBaselineRun(baselinePayload.run);
 
-        const versionResponse = await fetch(
+        const versionResponse = await apiFetch(
           `${API_BASE_URL}/projects/${baselinePayload.run.projectId}/versions/${baselinePayload.run.versionId}`,
           {
             headers: {
@@ -196,7 +196,7 @@ export default function FailureInjectionPage() {
 
     async function pollInjectedRun() {
       try {
-        const response = await fetch(`${API_BASE_URL}/runs/${injectedRunId}`, {
+        const response = await apiFetch(`${API_BASE_URL}/runs/${injectedRunId}`, {
           headers: {
             Authorization: `Bearer ${token}`
           }
@@ -261,7 +261,7 @@ export default function FailureInjectionPage() {
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/runs/${baselineRun.id}/failure-injection`, {
+      const response = await apiFetch(`${API_BASE_URL}/runs/${baselineRun.id}/failure-injection`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

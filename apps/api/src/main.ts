@@ -8,11 +8,19 @@ import { AppModule } from './app.module.js';
 import { getJwtSecret } from './auth/jwt.util.js';
 
 function parseAllowedOrigins(): string[] {
-  const raw = process.env.CORS_ALLOWED_ORIGINS || 'http://localhost:3000,http://127.0.0.1:3000';
+  const localDefaults = 'http://localhost:3000,http://127.0.0.1:3000';
+  const raw =
+    process.env.CORS_ALLOWED_ORIGINS ??
+    (process.env.NODE_ENV === 'production' ? '' : localDefaults);
   const origins = raw
     .split(',')
     .map((entry) => entry.trim())
     .filter((entry) => entry.length > 0);
+
+  if (process.env.NODE_ENV === 'production') {
+    return Array.from(new Set(origins));
+  }
+
   const withLocalDefaults = [...origins, 'http://localhost:3000', 'http://127.0.0.1:3000'];
   return Array.from(new Set(withLocalDefaults));
 }

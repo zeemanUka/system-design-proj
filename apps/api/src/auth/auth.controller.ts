@@ -7,7 +7,7 @@ import {
   Req,
   Res
 } from '@nestjs/common';
-import { loginRequestSchema, signupRequestSchema } from '@sdc/shared-types';
+import { AuthSuccessResponse, loginRequestSchema, signupRequestSchema } from '@sdc/shared-types';
 import { FastifyReply, FastifyRequest } from 'fastify';
 import { AuthService } from './auth.service.js';
 import { AUTH_COOKIE_NAME, clearAuthCookie, parseCookieValue, setAuthCookie } from './auth-cookie.util.js';
@@ -29,7 +29,10 @@ export class AuthController {
 
     const response = await this.authService.signup(parsed.data);
     setAuthCookie(reply, request, response.token);
-    return response;
+    reply.header('Cache-Control', 'no-store, private, max-age=0');
+    return {
+      user: response.user
+    } satisfies AuthSuccessResponse;
   }
 
   @Post('login')
@@ -45,7 +48,10 @@ export class AuthController {
 
     const response = await this.authService.login(parsed.data);
     setAuthCookie(reply, request, response.token);
-    return response;
+    reply.header('Cache-Control', 'no-store, private, max-age=0');
+    return {
+      user: response.user
+    } satisfies AuthSuccessResponse;
   }
 
   @Post('logout')
@@ -58,6 +64,7 @@ export class AuthController {
         : null;
     await this.authService.logoutByToken(cookieToken || bearerToken);
     clearAuthCookie(reply, request);
+    reply.header('Cache-Control', 'no-store, private, max-age=0');
     return {
       ok: true
     };

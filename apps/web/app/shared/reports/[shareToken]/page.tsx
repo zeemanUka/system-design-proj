@@ -4,7 +4,7 @@ import { SharedReportResponse } from '@sdc/shared-types';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { API_BASE_URL } from '@/lib/api';
+import { API_BASE_URL, apiFetch } from '@/lib/api';
 
 function deltaLabel(value: number | null, suffix = '') {
   if (value === null) {
@@ -35,7 +35,7 @@ export default function SharedReportPage() {
 
     void (async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/shared/reports/${shareToken}`);
+        const response = await apiFetch(`${API_BASE_URL}/shared/reports/${shareToken}`);
         if (!response.ok) {
           setError('Shared report was not found or has been revoked.');
           setIsLoading(false);
