@@ -22,3 +22,8 @@
 - Prevention rule: for Prisma commands, prefer workspace scripts (`npm --workspace @sdc/api run ...`) over direct/global CLI usage.
 - Prevention rule: when a Prisma schema error seems inconsistent with repo code, verify local Prisma version first (`npx prisma -v`) before editing schema.
 - Prevention rule: add explicit troubleshooting docs for Prisma 6/7 version mismatch and editor plugin version selection.
+
+## 2026-02-28 - Always Generate Prisma Client Before CI Typecheck/Build
+- Correction pattern: CI failed with missing Prisma model/payload/json types (`ProjectGetPayload`, `InputJsonValue`, `User`) after clean install.
+- Prevention rule: every CI workflow that runs lint/typecheck/build must run `npm --workspace @sdc/api run prisma:generate` immediately after dependency installation.
+- Prevention rule: if TypeScript errors report missing `Prisma.*GetPayload`, `Prisma.JsonValue`, or `@prisma/client` model exports, first verify client generation rather than editing app code.

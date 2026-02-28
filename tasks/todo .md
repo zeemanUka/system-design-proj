@@ -344,3 +344,30 @@ Resolve Prisma `datasource.url` false-positive errors caused by Prisma 7 tooling
   - `npm --workspace @sdc/api run prisma:validate`
   - `npm --workspace @sdc/api run prisma:generate`
   - `npm --workspace @sdc/api run prisma:db:push -- --accept-data-loss`
+
+---
+
+# CI Prisma Generation Gate Fix (2026-02-28)
+
+## Scope
+Fix CI typecheck/build failures caused by missing generated Prisma client types after clean dependency install.
+
+## Plan
+- [x] 1. Reproduce CI failure locally from clean install
+- [x] 2. Confirm `prisma generate` resolves missing Prisma namespace/model exports
+- [x] 3. Patch CI workflows to generate Prisma client before lint/typecheck/build
+- [x] 4. Re-verify local typecheck flow with/without generate
+
+## Review
+- Reproduced CI failure after clean `npm ci` with matching errors:
+  - missing `Prisma.ProjectGetPayload`, `Prisma.ProjectMemberGetPayload`, `Prisma.InputJsonValue`, `Prisma.JsonValue`
+  - missing `User` export from `@prisma/client`
+- Confirmed root cause:
+  - Prisma client is not generated in CI before `npm run typecheck`.
+  - Running `npm --workspace @sdc/api run prisma:generate` restores generated types and fixes workspace typecheck.
+- Updated workflows:
+  - `.github/workflows/ci.yml`: added `Generate Prisma Client` step after install.
+  - `.github/workflows/release.yml`: added `Generate Prisma Client` step after install.
+- Verification:
+  - `npm run typecheck` fails immediately after clean `npm ci` (before generate).
+  - `npm --workspace @sdc/api run prisma:generate && npm run typecheck` passes.
