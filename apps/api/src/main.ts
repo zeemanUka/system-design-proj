@@ -5,6 +5,7 @@ import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify
 import { FastifyReply, FastifyRequest } from 'fastify';
 import { ObservabilityService } from './observability/observability.service.js';
 import { AppModule } from './app.module.js';
+import { getJwtSecret } from './auth/jwt.util.js';
 
 function parseAllowedOrigins(): string[] {
   const raw = process.env.CORS_ALLOWED_ORIGINS || 'http://localhost:3000,http://127.0.0.1:3000';
@@ -39,6 +40,9 @@ function toSafeParamMap(value: unknown): Record<string, string> {
 }
 
 async function bootstrap() {
+  // Fail fast if critical auth configuration is missing.
+  getJwtSecret();
+
   const bodyLimit = Number(process.env.API_BODY_LIMIT_BYTES || 1_048_576);
   const allowedOrigins = parseAllowedOrigins();
 

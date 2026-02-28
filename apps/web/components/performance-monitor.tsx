@@ -29,15 +29,17 @@ function classifyMetric(name: MetricName, value: number): MetricRating {
 }
 
 async function sendFrontendMetric(name: MetricName, value: number, path: string, navigationType?: string) {
-  const rating = classifyMetric(name, value);
   const token = getAuthToken();
+  if (!token) {
+    return;
+  }
+
+  const rating = classifyMetric(name, value);
 
   const headers: HeadersInit = {
-    'Content-Type': 'application/json'
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${token}`
   };
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
 
   try {
     await fetch(`${API_BASE_URL}/observability/frontend-metrics`, {

@@ -27,3 +27,9 @@
 - Correction pattern: CI failed with missing Prisma model/payload/json types (`ProjectGetPayload`, `InputJsonValue`, `User`) after clean install.
 - Prevention rule: every CI workflow that runs lint/typecheck/build must run `npm --workspace @sdc/api run prisma:generate` immediately after dependency installation.
 - Prevention rule: if TypeScript errors report missing `Prisma.*GetPayload`, `Prisma.JsonValue`, or `@prisma/client` model exports, first verify client generation rather than editing app code.
+
+## 2026-02-28 - Enforce Server-Managed Auth and Secret Hygiene
+- Correction pattern: security audit flagged client-set auth cookies, JWT fallback secret, and secret hygiene gaps.
+- Prevention rule: never set sensitive auth cookies from frontend JavaScript; auth cookies must be API-managed with `HttpOnly` and production `Secure`.
+- Prevention rule: do not allow fallback values for critical auth secrets (`JWT_SECRET`); fail startup when missing.
+- Prevention rule: enforce secret hygiene in CI (`.env` must not be tracked) and avoid insecure default credentials in examples/fallbacks.

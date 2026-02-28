@@ -81,7 +81,9 @@ export default function StatusPage() {
                 navigationType: 'status-check'
               }
             })
-          })
+          }).then((response) =>
+            response.status === 401 ? new Response(null, { status: 200 }) : response
+          )
         )
       ]);
 

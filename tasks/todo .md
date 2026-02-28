@@ -347,6 +347,57 @@ Resolve Prisma `datasource.url` false-positive errors caused by Prisma 7 tooling
 
 ---
 
+# Security Audit Remediation (2026-02-28)
+
+## Scope
+Remediate all identified security findings across auth/session handling, API abuse controls, rate limiting, header safety, credential defaults, and deployment hygiene.
+
+## Plan
+- [x] 1. Implement server-set secure auth cookies and remove client-set sensitive token cookies
+- [x] 2. Remove JWT secret fallback and enforce required `JWT_SECRET`
+- [x] 3. Add token revocation mechanism and logout endpoint
+- [x] 4. Strengthen password policy and enforce account lockout on repeated login failures
+- [x] 5. Protect frontend observability ingestion endpoint with authentication
+- [x] 6. Sanitize report download filenames before setting `Content-Disposition`
+- [x] 7. Upgrade rate limiting to Redis-backed storage with safe fallback
+- [x] 8. Harden Grafana/default secret configuration and prevent accidental `.env` tracking
+- [x] 9. Run schema/code verification (`prisma`, lint, typecheck, tests) and document outcomes
+
+## Review
+- Authentication cookie hardening:
+  - Added API-side auth cookie management with `HttpOnly`, `SameSite=Lax`, and production-secure behavior.
+  - Auth cookies are now set in `POST /auth/signup` and `POST /auth/login`.
+  - Added `POST /auth/logout` to revoke current token (when valid) and always clear auth cookie.
+  - Frontend no longer writes sensitive JWT cookies from `document.cookie`; token is kept in session storage for existing Bearer flows.
+- JWT secret hardening:
+  - Removed all `JWT_SECRET` fallback values.
+  - Added startup fail-fast in API bootstrap when `JWT_SECRET` is missing.
+- Revocation and lockout:
+  - Added `tokenVersion`, `failedLoginAttempts`, `lockoutUntil` fields to `User`.
+  - JWT includes `tv` claim; `JwtAuthGuard` validates it against DB for token revocation.
+  - Login now enforces account lockout after repeated failures and resets counters on success.
+- Observability endpoint protection:
+  - Added `JwtAuthGuard` to `POST /observability/frontend-metrics`.
+  - Updated frontend performance monitor to only send metrics when authenticated.
+- Header injection mitigation:
+  - Added filename sanitization helper and applied it to both PDF download endpoints before setting `Content-Disposition`.
+- Rate limiting hardening:
+  - Reworked `RateLimitGuard` to use Redis-backed counters for multi-instance consistency.
+  - Retains in-memory fallback if Redis is unavailable.
+- Secret/config hygiene:
+  - Hardened Grafana defaults in `.env.example` and Docker Compose fallback values.
+  - Added CI and release workflow guard that fails if `.env` is tracked.
+  - Verified `.env` is not currently tracked and has no git history.
+
+### Verification
+- `npm --workspace @sdc/api run prisma:generate` passed.
+- `npm --workspace @sdc/api run prisma:db:push -- --accept-data-loss` passed.
+- `npm run typecheck` passed.
+- `npm run lint` passed.
+- `npm run test` passed.
+
+---
+
 # CI Prisma Generation Gate Fix (2026-02-28)
 
 ## Scope

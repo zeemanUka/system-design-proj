@@ -70,6 +70,7 @@ Core:
 - `DATABASE_URL`
 - `REDIS_URL`
 - `JWT_SECRET`
+- `JWT_ACCESS_TOKEN_TTL`
 - `API_PORT`
 - `NEXT_PUBLIC_API_BASE_URL`
 
@@ -80,6 +81,9 @@ Security/observability:
 - `RATE_LIMIT_MAX_REQUESTS`
 - `AUTH_RATE_LIMIT_WINDOW_MS`
 - `AUTH_RATE_LIMIT_MAX_REQUESTS`
+- `AUTH_MAX_FAILED_ATTEMPTS`
+- `AUTH_LOCKOUT_MINUTES`
+- `AUTH_COOKIE_SECURE`
 - `REQUEST_TELEMETRY_SAMPLE_RATE`
 
 AI feedback:
@@ -91,6 +95,8 @@ AI feedback:
 - `AI_MAX_TOKENS`
 
 Notes:
+- `.env` must never be committed; CI enforces this.
+- `AUTH_COOKIE_SECURE` is optional; leave empty to auto-detect (`true` in production, `false` in local HTTP dev).
 - `AI_PROVIDER=mock` works without an external API key.
 - For `openai-compatible` or `anthropic`, set a valid `AI_API_KEY` before running the grading worker.
 
@@ -162,6 +168,9 @@ docker compose -f infra/docker/docker-compose.yml up -d
 ## Troubleshooting
 - Simulation/grade jobs stay pending:
   - Ensure both workers are running and Redis is reachable.
+- Login keeps failing after repeated attempts:
+  - Account lockout is enforced after repeated failed logins.
+  - Wait for `AUTH_LOCKOUT_MINUTES` or reset lockout in DB for local testing.
 - Prisma/runtime schema mismatch:
   - Re-run `npm --workspace @sdc/api run prisma:generate`
   - Re-run `npm --workspace @sdc/api run prisma:db:push`

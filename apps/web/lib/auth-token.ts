@@ -1,19 +1,38 @@
+import { API_BASE_URL } from './api';
+
+const AUTH_TOKEN_STORAGE_KEY = 'sdc_auth_token';
+
 export function setAuthToken(token: string) {
-  document.cookie = `auth_token=${token}; path=/; max-age=604800; samesite=lax`;
+  if (typeof window === 'undefined') {
+    return;
+  }
+  window.localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, token);
+  window.sessionStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
 }
 
 export function clearAuthToken() {
-  document.cookie = 'auth_token=; path=/; max-age=0; samesite=lax';
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+  window.sessionStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+
+  void fetch(`${API_BASE_URL}/auth/logout`, {
+    method: 'POST',
+    credentials: 'include'
+  }).catch(() => {
+    // Best-effort cookie cleanup; local token storage has already been cleared.
+  });
 }
 
 export function getAuthToken(): string | null {
-  if (typeof document === 'undefined') {
+  if (typeof window === 'undefined') {
     return null;
   }
 
-  const match = document.cookie
-    .split('; ')
-    .find((cookieValue) => cookieValue.startsWith('auth_token='));
-
-  return match ? decodeURIComponent(match.split('=')[1]) : null;
+  return (
+    window.localStorage.getItem(AUTH_TOKEN_STORAGE_KEY) ??
+    window.sessionStorage.getItem(AUTH_TOKEN_STORAGE_KEY)
+  );
 }

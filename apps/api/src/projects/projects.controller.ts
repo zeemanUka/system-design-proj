@@ -34,6 +34,7 @@ import {
   parseShareTokenParam,
   parseUuidParam
 } from '../common/request-validation.js';
+import { toSafeAttachmentFilename } from '../common/content-disposition.js';
 import { RequestWithUser } from '../auth/request-user.type.js';
 import { ReportsService } from './reports.service.js';
 import { ProjectsService } from './projects.service.js';
@@ -475,7 +476,7 @@ export class ProjectsController {
       parseUuidParam('exportId', exportId)
     );
     reply.header('Content-Type', 'application/pdf');
-    reply.header('Content-Disposition', `attachment; filename="${payload.fileName}"`);
+    reply.header('Content-Disposition', `attachment; filename="${toSafeAttachmentFilename(payload.fileName)}"`);
     return payload.buffer;
   }
 

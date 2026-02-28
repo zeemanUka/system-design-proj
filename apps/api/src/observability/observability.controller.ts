@@ -1,6 +1,7 @@
-import { BadRequestException, Body, Controller, Inject, Post, Req } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Inject, Post, Req, UseGuards } from '@nestjs/common';
 import { frontendMetricRequestSchema } from '@sdc/shared-types';
 import { FastifyRequest } from 'fastify';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import { ObservabilityService } from './observability.service.js';
 
 type MetricRequestWithUser = FastifyRequest & {
@@ -14,6 +15,7 @@ export class ObservabilityController {
   constructor(@Inject(ObservabilityService) private readonly observability: ObservabilityService) {}
 
   @Post('frontend-metrics')
+  @UseGuards(JwtAuthGuard)
   async captureFrontendMetric(@Req() request: MetricRequestWithUser, @Body() body: unknown) {
     const parsed = frontendMetricRequestSchema.safeParse(body);
     if (!parsed.success) {

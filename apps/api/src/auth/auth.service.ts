@@ -4,7 +4,11 @@ import { AuthSuccessResponse, LoginRequest, SignupRequest, UserProfile } from '@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { getAccessTokenTtl, getJwtSecret, JwtPayload } from './jwt.util.js';
 import { isPasswordStrong } from './password.util.js';
+
+const DEFAULT_MAX_FAILED_LOGIN_ATTEMPTS = 5;
+const DEFAULT_LOCKOUT_MINUTES = 15;
 
 @Injectable()
 export class AuthService {
@@ -12,7 +16,9 @@ export class AuthService {
 
   async signup(input: SignupRequest): Promise<AuthSuccessResponse> {
     if (!isPasswordStrong(input.password)) {
-      throw new BadRequestException('Password must include letters and numbers and be at least 8 characters.');
+      throw new BadRequestException(
+        'Password must be at least 12 characters and include uppercase, lowercase, number, and symbol.'
+      );
     }
 
     const existingUser = await this.prisma.user.findUnique({
@@ -47,25 +53,65 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials.');
     }
 
+    const now = new Date();
+    if (user.lockoutUntil && user.lockoutUntil > now) {
+      throw new UnauthorizedException('Account temporarily locked. Please retry later.');
+    }
+
     const isMatch = await bcrypt.compare(input.password, user.passwordHash);
     if (!isMatch) {
+      await this.recordFailedLoginAttempt(user, now);
       throw new UnauthorizedException('Invalid credentials.');
     }
 
+    const authenticatedUser = await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        failedLoginAttempts: 0,
+        lockoutUntil: null,
+        tokenVersion: {
+          increment: 1
+        }
+      }
+    });
+
     return {
-      token: this.signToken(user),
-      user: this.toUserProfile(user)
+      token: this.signToken(authenticatedUser),
+      user: this.toUserProfile(authenticatedUser)
     };
+  }
+
+  async logoutByToken(token: string | null): Promise<void> {
+    if (!token) {
+      return;
+    }
+
+    try {
+      const payload = jwt.verify(token, getJwtSecret()) as JwtPayload;
+      await this.prisma.user.update({
+        where: { id: payload.sub },
+        data: {
+          tokenVersion: {
+            increment: 1
+          },
+          failedLoginAttempts: 0,
+          lockoutUntil: null
+        }
+      });
+    } catch {
+      // Token may already be expired/invalid. Clearing cookie on controller side still logs out browser session.
+    }
   }
 
   private signToken(user: User): string {
     return jwt.sign(
       {
         sub: user.id,
-        email: user.email
+        email: user.email,
+        tv: user.tokenVersion
       },
-      process.env.JWT_SECRET || 'development-secret',
-      { expiresIn: '7d' }
+      getJwtSecret(),
+      { expiresIn: getAccessTokenTtl() }
     );
   }
 
@@ -89,5 +135,45 @@ export class AuthService {
     }
 
     return value.filter((item): item is string => typeof item === 'string');
+  }
+
+  private async recordFailedLoginAttempt(user: User, now: Date): Promise<void> {
+    const nextCount = user.failedLoginAttempts + 1;
+    const maxAttempts = this.parsePositiveIntEnv(
+      'AUTH_MAX_FAILED_ATTEMPTS',
+      DEFAULT_MAX_FAILED_LOGIN_ATTEMPTS,
+      3,
+      20
+    );
+    const lockoutMinutes = this.parsePositiveIntEnv('AUTH_LOCKOUT_MINUTES', DEFAULT_LOCKOUT_MINUTES, 1, 1440);
+
+    if (nextCount < maxAttempts) {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          failedLoginAttempts: nextCount,
+          lockoutUntil: null
+        }
+      });
+      return;
+    }
+
+    const lockoutUntil = new Date(now.getTime() + lockoutMinutes * 60_000);
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        failedLoginAttempts: 0,
+        lockoutUntil
+      }
+    });
+  }
+
+  private parsePositiveIntEnv(name: string, fallback: number, minimum: number, maximum: number): number {
+    const parsed = Number(process.env[name] ?? fallback);
+    if (!Number.isFinite(parsed)) {
+      return fallback;
+    }
+
+    return Math.min(maximum, Math.max(minimum, Math.floor(parsed)));
   }
 }

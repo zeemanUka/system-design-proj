@@ -2,12 +2,12 @@ import { z } from 'zod';
 
 export const signupRequestSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(8).max(100)
+  password: z.string().min(12).max(100)
 });
 
 export const loginRequestSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(8).max(100)
+  password: z.string().min(12).max(100)
 });
 
 export const onboardingRequestSchema = z.object({

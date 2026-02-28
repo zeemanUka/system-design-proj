@@ -1,5 +1,6 @@
 import { Controller, Get, Inject, Param, Res } from '@nestjs/common';
 import { FastifyReply } from 'fastify';
+import { toSafeAttachmentFilename } from '../common/content-disposition.js';
 import { parseShareTokenParam } from '../common/request-validation.js';
 import { ReportsService } from './reports.service.js';
 
@@ -21,7 +22,7 @@ export class SharedReportsController {
       parseShareTokenParam('shareToken', shareToken)
     );
     reply.header('Content-Type', 'application/pdf');
-    reply.header('Content-Disposition', `attachment; filename="${payload.fileName}"`);
+    reply.header('Content-Disposition', `attachment; filename="${toSafeAttachmentFilename(payload.fileName)}"`);
     return payload.buffer;
   }
 }
