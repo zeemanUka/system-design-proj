@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ForbiddenException,
   Inject,
   Injectable,
   InternalServerErrorException,
@@ -37,6 +36,7 @@ import {
   validateArchitectureTopology
 } from '@sdc/shared-types';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { ProjectsService } from './projects.service.js';
 
 type VersionRecord = Prisma.ArchitectureVersionGetPayload<{
   select: {
@@ -88,7 +88,10 @@ type ReportExportRow = {
 
 @Injectable()
 export class ReportsService {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(ProjectsService) private readonly projectsService: ProjectsService
+  ) {}
 
   async getVersionCompare(
     userId: string,
@@ -96,7 +99,7 @@ export class ReportsService {
     baselineVersionId: string,
     candidateVersionId: string
   ): Promise<VersionCompareResponse> {
-    await this.assertProjectOwnership(userId, projectId);
+    await this.projectsService.assertProjectViewAccess(userId, projectId);
 
     if (baselineVersionId === candidateVersionId) {
       throw new BadRequestException('baselineVersionId and candidateVersionId must be different.');
@@ -118,7 +121,7 @@ export class ReportsService {
     baselineVersionId?: string,
     candidateVersionId?: string
   ): Promise<ProjectReportResponse> {
-    await this.assertProjectOwnership(userId, projectId);
+    await this.projectsService.assertProjectViewAccess(userId, projectId);
 
     const { baselineVersion, candidateVersion } = await this.resolveReportVersions(
       projectId,
@@ -138,6 +141,8 @@ export class ReportsService {
     baselineVersionId?: string,
     candidateVersionId?: string
   ): Promise<ReportExportResponse> {
+    await this.projectsService.assertProjectEditAccess(userId, projectId);
+
     const reportResponse = await this.getProjectReport(
       userId,
       projectId,
@@ -174,23 +179,13 @@ export class ReportsService {
       where: {
         id: exportId,
         projectId
-      },
-      include: {
-        project: {
-          select: {
-            userId: true
-          }
-        }
       }
     });
 
     if (!exportRecord) {
       throw new NotFoundException('Report export not found.');
     }
-
-    if (exportRecord.project.userId !== userId) {
-      throw new ForbiddenException('You do not have access to this report export.');
-    }
+    await this.projectsService.assertProjectViewAccess(userId, exportRecord.projectId);
 
     const report = this.parseStoredReport(exportRecord.reportSnapshot);
     return {
@@ -204,25 +199,16 @@ export class ReportsService {
     projectId: string,
     exportId: string
   ): Promise<ReportShareResponse> {
+    await this.projectsService.assertProjectEditAccess(userId, projectId);
+
     const existingExport = await this.prisma.reportExport.findUnique({
       where: {
         id: exportId
-      },
-      include: {
-        project: {
-          select: {
-            userId: true
-          }
-        }
       }
     });
 
     if (!existingExport || existingExport.projectId !== projectId) {
       throw new NotFoundException('Report export not found for this project.');
-    }
-
-    if (existingExport.project.userId !== userId) {
-      throw new ForbiddenException('You do not have access to this report export.');
     }
 
     const shareToken = await this.createUniqueShareToken();
@@ -245,25 +231,16 @@ export class ReportsService {
     projectId: string,
     shareToken: string
   ): Promise<ReportShareResponse> {
+    await this.projectsService.assertProjectEditAccess(userId, projectId);
+
     const existingExport = await this.prisma.reportExport.findFirst({
       where: {
         shareToken
-      },
-      include: {
-        project: {
-          select: {
-            userId: true
-          }
-        }
       }
     });
 
     if (!existingExport || existingExport.projectId !== projectId) {
       throw new NotFoundException('Share token not found for this project.');
-    }
-
-    if (existingExport.project.userId !== userId) {
-      throw new ForbiddenException('You do not have access to this shared report.');
     }
 
     const updatedExport = await this.prisma.reportExport.update({
@@ -979,22 +956,4 @@ export class ReportsService {
     return defaultTrafficProfile;
   }
 
-  private async assertProjectOwnership(userId: string, projectId: string): Promise<void> {
-    const project = await this.prisma.project.findUnique({
-      where: {
-        id: projectId
-      },
-      select: {
-        userId: true
-      }
-    });
-
-    if (!project) {
-      throw new NotFoundException('Project not found.');
-    }
-
-    if (project.userId !== userId) {
-      throw new ForbiddenException('You do not have access to this project.');
-    }
-  }
 }

@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service.js';
 
 type RequestTelemetryInput = {
@@ -34,6 +35,17 @@ type JobTelemetryInput = {
   durationMs?: number;
   errorMessage?: string | null;
   metadata?: Record<string, unknown>;
+};
+
+type FrontendMetricInput = {
+  name: string;
+  value: number;
+  path: string;
+  rating?: string;
+  navigationType?: string;
+  userId?: string | null;
+  ipAddress?: string | null;
+  userAgent?: string | null;
 };
 
 @Injectable()
@@ -112,6 +124,32 @@ export class ObservabilityService {
     } catch (error) {
       this.logger.warn(
         `Failed to persist job telemetry for ${input.queueName}/${input.jobId}: ${this.errorMessage(error)}`
+      );
+    }
+  }
+
+  async recordFrontendMetric(input: FrontendMetricInput): Promise<void> {
+    try {
+      await this.prisma.requestTelemetry.create({
+        data: {
+          requestId: randomUUID(),
+          method: 'FRONTEND',
+          path: input.path,
+          statusCode: 200,
+          durationMs: Math.max(0, Math.round(input.value)),
+          userId: input.userId ?? null,
+          ipAddress: input.ipAddress ?? null,
+          userAgent: input.userAgent ?? null,
+          metadata: {
+            metricName: input.name,
+            rating: input.rating ?? null,
+            navigationType: input.navigationType ?? null
+          } as Prisma.InputJsonValue
+        }
+      });
+    } catch (error) {
+      this.logger.warn(
+        `Failed to persist frontend metric ${input.name} (${input.path}): ${this.errorMessage(error)}`
       );
     }
   }

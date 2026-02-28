@@ -130,8 +130,35 @@ export default function HomePage() {
           <a href="#features">Features</a>
           <a href="#how-it-works">How It Works</a>
           <a href="#trust-section">Trust</a>
-          <button className="theme-toggle" onClick={toggleTheme} type="button">
-            {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+          <Link href="/status">Status</Link>
+          <button
+            className="theme-toggle"
+            onClick={toggleTheme}
+            type="button"
+            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {theme === 'dark' ? (
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle cx="12" cy="12" r="5" stroke="currentColor" strokeWidth="1.8" />
+                <path
+                  d="M12 2V4M12 20V22M4.93 4.93L6.34 6.34M17.66 17.66L19.07 19.07M2 12H4M20 12H22M4.93 19.07L6.34 17.66M17.66 6.34L19.07 4.93"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path
+                  d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 1 0 10.5 10.5Z"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            )}
           </button>
           <Link className="button" href="/auth">
             Get Started
@@ -255,6 +282,7 @@ export default function HomePage() {
           <div className="nav-links">
             <a href="#features">Features</a>
             <a href="#how-it-works">How It Works</a>
+            <Link href="/status">Status</Link>
             <Link href="/auth">Get Started</Link>
           </div>
         </footer>

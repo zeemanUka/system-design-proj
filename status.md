@@ -25,6 +25,7 @@
 | 7 | AI Grading and Feedback | Stage 5 | Done | 2026-02-27 | 2026-02-27 | Engineering | Implemented grading queue flow (`POST /versions/:id/grade` + `GET /grades/:id`), deterministic rubric scoring with evidence traces, configurable AI feedback providers via `.env`, and `/grades/:id` report UI with prioritized P0/P1/P2 actions. |
 | 8 | Version Compare and Reporting | Stage 7 | Done | 2026-02-27 | 2026-02-27 | Engineering | Implemented compare API/UI, KPI+rubric deltas, final report generation, PDF export path, and revocable read-only share links; lint/typecheck/test + live smoke passed. |
 | 9 | Hardening, Security, Observability, Beta | Stage 8 | Done | 2026-02-27 | 2026-02-27 | Engineering | Added audit/request/job telemetry, global rate limiting + secure headers + input hardening, load-test tooling/results, and beta runbook/IR/authZ docs with go decision. |
+| 10 | GA Productization and Team Workflows | Stage 9 | Done | 2026-02-28 | 2026-02-28 | Engineering | Implemented collaboration model, shared-project/team workflows, node comments, Stage 10 E2E/smoke scripts, frontend performance telemetry ingestion, GA ops scripts, and public reliability page. |
 
 ## Detailed Stage Checklist
 
@@ -126,6 +127,21 @@ Exit criteria:
 - [x] Reliability/security checklist completed.
 - [x] Beta launch go/no-go decision documented.
 
+### [x] Stage 10 - GA Productization and Team Workflows
+Goal: move from beta-complete platform to reliable GA-ready product operations and multi-user workflows.
+- [x] Add collaboration model v1 (project member roles, invite flow, shared edit permissions).
+- [x] Add comment/annotation workflow on architecture nodes and report action items.
+- [x] Add end-to-end test suite for critical journeys (auth, scenario start, workspace autosave, simulate, grade, compare, report export/share).
+- [x] Add frontend performance budgets and monitoring (route-level Web Vitals, interaction timing, slow-query surfacing).
+- [x] Add release automation (versioned deploy pipeline, smoke tests, rollback script, environment drift check).
+- [x] Add data lifecycle controls (retention policy jobs, audit export for admin, backup/restore validation drill).
+- [x] Add beta analytics loop (activation, completion, regrade cadence, failed-run diagnostics dashboard).
+- [x] Add customer-facing reliability page (system status + incident communication template).
+Exit criteria:
+- [x] Team workflows support shared projects with role-scoped permissions and auditable access events.
+- [x] E2E suite is green in CI with a stable reliability threshold and no flaky blockers.
+- [x] GA release checklist is documented, rehearsed, and approved with rollback confidence.
+
 ## Active Risks and Blockers
 | ID | Type | Description | Owner | Mitigation | Status |
 |---|---|---|---|---|---|
@@ -140,3 +156,5 @@ Exit criteria:
 | 2026-02-27 | Completed Stage 7 deterministic grading + configurable AI feedback + report UI with live smoke validation. | Proceed to Stage 8 compare and reporting. | Implement side-by-side version/score diff and report export path. |
 | 2026-02-27 | Completed Stage 8 compare/report APIs + UI + PDF/share workflows with live smoke validation (including revoke behavior). | Proceed to Stage 9 hardening/security/observability. | Implement telemetry, rate limiting, security headers, and beta readiness checklist. |
 | 2026-02-27 | Completed Stage 9 hardening and beta-readiness work (telemetry, rate limiting, secure headers, load test, runbooks, authZ review, go/no-go). | Delivery stages 0-9 complete for current milestone. | Track beta operational metrics and tune rate limits from first traffic window. |
+| 2026-02-28 | Planned Stage 10 roadmap for GA productization. | Stage 10 will start with E2E quality gates and collaboration model design. | Break Stage 10 into sprint tickets and begin FE/BE/API implementation slices. |
+| 2026-02-28 | Completed Stage 10 GA productization implementation (collaboration, comments, telemetry budgets, release/data/analytics scripts, status page). | Stage 10 milestone marked complete with full lint/typecheck/test validation and script tooling in place. | Start post-GA optimization sprint for richer realtime collaboration and alert tuning. |

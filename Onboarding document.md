@@ -88,6 +88,7 @@ Build an interactive system design training app where users can:
 | `/grades/:gradeId` | AI Grading Report | Interview-style feedback | Explain feedback, generate improved version, regrade | Score breakdown + prioritized fixes |
 | `/projects/:id/compare` | Attempt Compare | Diff versions and outcomes | Select versions, compare | Diagram + KPI + rubric delta |
 | `/projects/:id/report` | Review and Export | Summarize progress and share | Export PDF, share read-only link | Final report artifact |
+| `/status` | Reliability Status | Customer-facing service health page | View checks, use incident update template | Live service status communication |
 
 ## 7. Backend Architecture Proposal
 ### Services
@@ -165,6 +166,17 @@ Build an interactive system design training app where users can:
 | `POST` | `/auth/signup` | Register user |
 | `POST` | `/auth/login` | Authenticate user |
 | `GET` | `/projects/:id/compare` | Compare two versions |
+| `GET` | `/projects/shared` | List projects shared with current user |
+| `GET` | `/projects/:id/members` | Get owner, members, and pending invites |
+| `POST` | `/projects/:id/invites` | Create/refresh member invite |
+| `POST` | `/projects/invites/:inviteToken/accept` | Accept invite for current user |
+| `PATCH` | `/projects/:id/members/:memberId` | Update member role |
+| `DELETE` | `/projects/:id/members/:memberId` | Remove project member |
+| `GET` | `/projects/:id/versions/:versionId/comments` | List workspace node comments |
+| `POST` | `/projects/:id/versions/:versionId/comments` | Add node comment |
+| `PATCH` | `/projects/:id/versions/:versionId/comments/:commentId` | Edit comment body/status |
+| `DELETE` | `/projects/:id/versions/:versionId/comments/:commentId` | Delete comment |
+| `POST` | `/observability/frontend-metrics` | Ingest frontend performance metrics |
 
 ## 11. Data Model (Core Entities)
 1. `users`
@@ -179,6 +191,10 @@ Build an interactive system design training app where users can:
 10. `grade_reports`
 11. `feedback_items`
 12. `report_exports`
+13. `project_members`
+14. `project_invites`
+15. `version_comments`
+16. `request_telemetry` (includes frontend metric events)
 
 ## 12. Proposed Monorepo Structure
 ```text
@@ -242,6 +258,7 @@ system-design-app/
 | E6 | AI Grading and Coaching | Rubric scoring and evidence-based feedback |
 | E7 | Compare and Reporting | Version diff and exportable summary |
 | E8 | Reliability and Security | Observability, hardening, and auditability |
+| E9 | GA Productization and Team Workflows | Collaboration, quality gates, release automation, and reliability page |
 
 ### Ticket Breakdown (Screen and API)
 | Ticket | Scope | Acceptance Criteria |
@@ -258,6 +275,10 @@ system-design-app/
 | FE-010 | Grading report | Weighted score + evidence-linked deductions + P0/P1/P2 |
 | FE-011 | Compare screen | Side-by-side version and KPI/rubric deltas |
 | FE-012 | Report export | PDF export and revocable read-only share link |
+| FE-013 | Shared projects panel | Shows role-scoped shared projects and owner metadata |
+| FE-014 | Workspace comments | Node-level comment CRUD with open/resolved states |
+| FE-015 | Collaboration management | Invite members and manage editor/viewer roles |
+| FE-016 | Reliability page | Public status checks + incident communication template |
 | BE-001 | `POST /projects` | Creates user-owned project from scenario |
 | BE-002 | `POST /projects/:id/versions` | Snapshots version with lineage |
 | BE-003 | `GET /projects/:id/history` | Paginated history with run/grade summaries |
@@ -270,10 +291,16 @@ system-design-app/
 | BE-010 | `POST /auth/login` | Login with rate limiting |
 | BE-011 | `GET /scenarios` | Filtered scenario list optimized for UI |
 | BE-012 | `GET /projects/:id/compare` | Version diff contract for compare page |
+| BE-013 | Collaboration model | Membership + invite lifecycle with role checks |
+| BE-014 | Comment APIs | Version comment CRUD with access control |
+| BE-015 | Frontend telemetry ingest | Capture Web Vitals/route metrics from browser |
 | SIM-001 | Simulation core | Deterministic throughput/latency/bottleneck outputs |
 | SIM-002 | Failure evaluator | Degraded-state modeling and blast-radius output |
 | GRADE-001 | Rubric rules | Deterministic scoring with traceable evidence |
 | GRADE-002 | AI feedback | Evidence-grounded explanation and action plan |
+| OPS-001 | Stage 10 E2E gate | Critical user journey script for auth->report share path |
+| OPS-002 | Release + rollback automation | Smoke check + rollback helper + release workflow |
+| OPS-003 | Data lifecycle + analytics | Retention cleanup and weekly GA metrics summary |
 
 ## 16. Milestones and Delivery Plan
 1. Week 1-2: E0, E1, E2.
@@ -282,6 +309,7 @@ system-design-app/
 4. Week 6: E5.
 5. Week 7: E6.
 6. Week 8: E7, E8, beta hardening.
+7. Week 9: E9 GA productization and operational readiness.
 
 ## 17. Definition of Done
 1. Acceptance criteria met and manually verified.

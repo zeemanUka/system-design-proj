@@ -4,10 +4,14 @@ import {
   ArchitectureComponent,
   ArchitectureEdge,
   ComponentType,
+  ListVersionCommentsResponse,
+  ProjectMembersResponse,
   GradeReportResponse,
   SimulationRunResponse,
   TrafficProfile,
+  UpdateVersionCommentRequest,
   UpdateVersionRequest,
+  VersionComment,
   VersionDetail,
   defaultTrafficProfile,
   validateArchitectureTopology
@@ -165,9 +169,18 @@ export default function VersionWorkspacePage() {
   const [showMinimap, setShowMinimap] = useState(true);
   const [freshNodeIds, setFreshNodeIds] = useState<string[]>([]);
   const [, setHistoryTick] = useState(0);
+  const [collaboration, setCollaboration] = useState<ProjectMembersResponse | null>(null);
+  const [comments, setComments] = useState<VersionComment[]>([]);
+  const [commentDraft, setCommentDraft] = useState('');
+  const [commentError, setCommentError] = useState<string | null>(null);
+  const [isSavingComment, setIsSavingComment] = useState(false);
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingCommentDraft, setEditingCommentDraft] = useState('');
+  const [isConflictLocked, setIsConflictLocked] = useState(false);
 
   const undoStackRef = useRef<WorkspaceSnapshot[]>([]);
   const redoStackRef = useRef<WorkspaceSnapshot[]>([]);
+  const lastKnownUpdatedAtRef = useRef<string>('');
 
   const warnings = useMemo(() => validateArchitectureTopology(components, edges), [components, edges]);
   const selectedComponent = useMemo(() => {
@@ -203,6 +216,16 @@ export default function VersionWorkspacePage() {
       ];
     });
   }, [componentMap, edges]);
+  const selectedNodeComments = useMemo(() => {
+    if (!selectedComponentId) {
+      return [];
+    }
+    return comments.filter((comment) => comment.nodeId === selectedComponentId);
+  }, [comments, selectedComponentId]);
+  const openCommentCount = useMemo(
+    () => comments.filter((comment) => comment.status === 'open').length,
+    [comments]
+  );
 
   const canUndo = undoStackRef.current.length > 0;
   const canRedo = redoStackRef.current.length > 0;
@@ -269,14 +292,26 @@ export default function VersionWorkspacePage() {
 
     void (async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/projects/${projectId}/versions/${versionId}`, {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        });
+        const [versionResponse, collaborationResponse, commentsResponse] = await Promise.all([
+          fetch(`${API_BASE_URL}/projects/${projectId}/versions/${versionId}`, {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          }),
+          fetch(`${API_BASE_URL}/projects/${projectId}/members`, {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          }),
+          fetch(`${API_BASE_URL}/projects/${projectId}/versions/${versionId}/comments`, {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          })
+        ]);
 
-        if (!response.ok) {
-          if (response.status === 401) {
+        if (!versionResponse.ok) {
+          if (versionResponse.status === 401) {
             clearAuthToken();
             router.replace('/auth');
             return;
@@ -286,16 +321,37 @@ export default function VersionWorkspacePage() {
           return;
         }
 
-        const payload = (await response.json()) as VersionDetail;
-        setVersion(payload);
-        setComponents(payload.components);
-        setEdges(payload.edges);
-        setTrafficProfile(payload.trafficProfile);
-        setNotes(payload.notes ?? '');
-        setSelectedComponentId(payload.components[0]?.id ?? null);
+        if (collaborationResponse.status === 401 || commentsResponse.status === 401) {
+          clearAuthToken();
+          router.replace('/auth');
+          return;
+        }
+
+        const versionPayload = (await versionResponse.json()) as VersionDetail;
+        const collaborationPayload = collaborationResponse.ok
+          ? ((await collaborationResponse.json()) as ProjectMembersResponse)
+          : null;
+        const commentsPayload = commentsResponse.ok
+          ? ((await commentsResponse.json()) as ListVersionCommentsResponse)
+          : { comments: [] };
+
+        setVersion(versionPayload);
+        setComponents(versionPayload.components);
+        setEdges(versionPayload.edges);
+        setTrafficProfile(versionPayload.trafficProfile);
+        setNotes(versionPayload.notes ?? '');
+        setSelectedComponentId(versionPayload.components[0]?.id ?? null);
+        setCollaboration(collaborationPayload);
+        setComments(commentsPayload.comments);
+        setCommentDraft('');
+        setEditingCommentId(null);
+        setEditingCommentDraft('');
+        setCommentError(null);
         setIsLoaded(true);
+        setIsConflictLocked(false);
         setSaveState('saved');
-        setLastSavedAt(new Date(payload.updatedAt).toLocaleTimeString());
+        setLastSavedAt(new Date(versionPayload.updatedAt).toLocaleTimeString());
+        lastKnownUpdatedAtRef.current = versionPayload.updatedAt;
         undoStackRef.current = [];
         redoStackRef.current = [];
         setHistoryTick((current) => current + 1);
@@ -306,7 +362,7 @@ export default function VersionWorkspacePage() {
   }, [projectId, router, versionId]);
 
   useEffect(() => {
-    if (!isLoaded) {
+    if (!isLoaded || isConflictLocked) {
       return;
     }
 
@@ -323,7 +379,8 @@ export default function VersionWorkspacePage() {
         components,
         edges,
         trafficProfile,
-        notes: notes.trim() || null
+        notes: notes.trim() || null,
+        lastKnownUpdatedAt: lastKnownUpdatedAtRef.current || undefined
       };
 
       void (async () => {
@@ -346,7 +403,10 @@ export default function VersionWorkspacePage() {
             }
 
             let message = 'Autosave failed.';
-            if (response.status === 429) {
+            if (response.status === 409) {
+              message = 'Edit lock active: another collaborator saved newer changes. Reload latest version.';
+              setIsConflictLocked(true);
+            } else if (response.status === 429) {
               message = 'Autosave paused due to rate limiting. Please wait a few seconds.';
             } else {
               try {
@@ -366,6 +426,8 @@ export default function VersionWorkspacePage() {
 
           const updated = (await response.json()) as VersionDetail;
           setVersion(updated);
+          lastKnownUpdatedAtRef.current = updated.updatedAt;
+          setIsConflictLocked(false);
           setSaveState('saved');
           setLastSavedAt(new Date().toLocaleTimeString());
           setError(null);
@@ -377,7 +439,7 @@ export default function VersionWorkspacePage() {
     }, 900);
 
     return () => clearTimeout(timer);
-  }, [components, edges, isLoaded, notes, projectId, router, trafficProfile, versionId]);
+  }, [components, edges, isConflictLocked, isLoaded, notes, projectId, router, trafficProfile, versionId]);
 
   function updateComponent(componentId: string, update: (component: ArchitectureComponent) => ArchitectureComponent) {
     setComponents((current) =>
@@ -559,6 +621,196 @@ export default function VersionWorkspacePage() {
     }
   }
 
+  async function createComment() {
+    if (!selectedComponentId) {
+      setCommentError('Select a component on the canvas before posting a comment.');
+      return;
+    }
+
+    const body = commentDraft.trim();
+    if (!body) {
+      setCommentError('Comment cannot be empty.');
+      return;
+    }
+
+    const token = getAuthToken();
+    if (!token) {
+      router.replace('/auth');
+      return;
+    }
+
+    setIsSavingComment(true);
+    setCommentError(null);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/projects/${projectId}/versions/${versionId}/comments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          nodeId: selectedComponentId,
+          body
+        })
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          clearAuthToken();
+          router.replace('/auth');
+          return;
+        }
+
+        const payload = (await response.json()) as { message?: string };
+        setCommentError(payload.message || 'Unable to save comment.');
+        return;
+      }
+
+      const created = (await response.json()) as VersionComment;
+      setComments((current) => [...current, created]);
+      setCommentDraft('');
+      setCommentError(null);
+    } catch {
+      setCommentError('Unable to reach server.');
+    } finally {
+      setIsSavingComment(false);
+    }
+  }
+
+  function startEditingComment(comment: VersionComment) {
+    setEditingCommentId(comment.id);
+    setEditingCommentDraft(comment.body);
+    setCommentError(null);
+  }
+
+  function cancelEditingComment() {
+    setEditingCommentId(null);
+    setEditingCommentDraft('');
+    setCommentError(null);
+  }
+
+  async function patchComment(commentId: string, payload: UpdateVersionCommentRequest) {
+    const token = getAuthToken();
+    if (!token) {
+      router.replace('/auth');
+      return null;
+    }
+
+    const response = await fetch(
+      `${API_BASE_URL}/projects/${projectId}/versions/${versionId}/comments/${commentId}`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      }
+    );
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        clearAuthToken();
+        router.replace('/auth');
+        return null;
+      }
+
+      const responsePayload = (await response.json()) as { message?: string };
+      throw new Error(responsePayload.message || 'Unable to update comment.');
+    }
+
+    return (await response.json()) as VersionComment;
+  }
+
+  async function saveEditedComment(commentId: string) {
+    const body = editingCommentDraft.trim();
+    if (!body) {
+      setCommentError('Comment cannot be empty.');
+      return;
+    }
+
+    setIsSavingComment(true);
+    setCommentError(null);
+
+    try {
+      const updated = await patchComment(commentId, { body });
+      if (!updated) {
+        return;
+      }
+
+      setComments((current) => current.map((comment) => (comment.id === updated.id ? updated : comment)));
+      cancelEditingComment();
+    } catch (error) {
+      setCommentError(error instanceof Error ? error.message : 'Unable to update comment.');
+    } finally {
+      setIsSavingComment(false);
+    }
+  }
+
+  async function toggleCommentResolution(comment: VersionComment) {
+    setIsSavingComment(true);
+    setCommentError(null);
+
+    try {
+      const nextStatus = comment.status === 'open' ? 'resolved' : 'open';
+      const updated = await patchComment(comment.id, { status: nextStatus });
+      if (!updated) {
+        return;
+      }
+
+      setComments((current) => current.map((entry) => (entry.id === updated.id ? updated : entry)));
+    } catch (error) {
+      setCommentError(error instanceof Error ? error.message : 'Unable to update comment status.');
+    } finally {
+      setIsSavingComment(false);
+    }
+  }
+
+  async function removeComment(commentId: string) {
+    const token = getAuthToken();
+    if (!token) {
+      router.replace('/auth');
+      return;
+    }
+
+    setIsSavingComment(true);
+    setCommentError(null);
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/projects/${projectId}/versions/${versionId}/comments/${commentId}`,
+        {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          clearAuthToken();
+          router.replace('/auth');
+          return;
+        }
+
+        const payload = (await response.json()) as { message?: string };
+        setCommentError(payload.message || 'Unable to delete comment.');
+        return;
+      }
+
+      setComments((current) => current.filter((comment) => comment.id !== commentId));
+      if (editingCommentId === commentId) {
+        cancelEditingComment();
+      }
+    } catch {
+      setCommentError('Unable to reach server.');
+    } finally {
+      setIsSavingComment(false);
+    }
+  }
+
   function startNodeDrag(event: PointerEvent<HTMLDivElement>, component: ArchitectureComponent) {
     if ((event.target as HTMLElement).closest('button')) {
       return;
@@ -622,6 +874,19 @@ export default function VersionWorkspacePage() {
           <h1>{version ? `Version ${version.versionNumber}` : 'Loading version workspace...'}</h1>
           <p className="subtitle">Drag components onto the canvas and pressure test scaling assumptions in real time.</p>
 
+          {collaboration ? (
+            <div className="collaboration-strip">
+              <span className="pill pill-accent">{collaboration.owner.email} (owner)</span>
+              {collaboration.members.map((member) => (
+                <span key={member.id} className={`pill ${member.role === 'editor' ? 'pill-warning' : ''}`}>
+                  {member.email} ({member.role})
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="muted">Loading collaborators...</p>
+          )}
+
           <div className="button-row">
             <span className={`pill ${saveState === 'saved' ? 'pill-accent' : ''}`}>{saveLabel}</span>
             <span className="pill">
@@ -667,6 +932,14 @@ export default function VersionWorkspacePage() {
           </div>
 
           {error ? <p className="error">{error}</p> : null}
+          {isConflictLocked ? (
+            <p className="warning-toast">
+              Edit lock active due to a newer collaborator save.
+              <button className="button button-link" type="button" onClick={() => window.location.reload()}>
+                Reload Latest
+              </button>
+            </p>
+          ) : null}
           {warnings.length > 0 ? <p className="warning-toast">{warnings.length} validation warning(s) detected.</p> : null}
         </section>
 
@@ -1076,6 +1349,109 @@ export default function VersionWorkspacePage() {
                 </div>
               ))}
             </div>
+
+            <hr />
+
+            <div className="split-row">
+              <h3 style={{ marginBottom: 0 }}>Node Comments</h3>
+              <span className="pill">{openCommentCount} open</span>
+            </div>
+            <p className="muted">
+              {selectedComponent
+                ? `Comments for ${selectedComponent.label}.`
+                : 'Select a component to comment on node-level design decisions.'}
+            </p>
+            {commentError ? <p className="error">{commentError}</p> : null}
+
+            {selectedComponent ? (
+              <div className="comment-thread">
+                {selectedNodeComments.length === 0 ? (
+                  <p className="muted">No comments on this node yet.</p>
+                ) : (
+                  selectedNodeComments.map((comment) => (
+                    <article key={comment.id} className="comment-item">
+                      <div className="split-row">
+                        <p style={{ marginBottom: 0, fontWeight: 600 }}>{comment.authorEmail}</p>
+                        <span className={`pill ${comment.status === 'resolved' ? 'pill-accent' : 'pill-warning'}`}>
+                          {comment.status}
+                        </span>
+                      </div>
+
+                      {editingCommentId === comment.id ? (
+                        <>
+                          <textarea
+                            rows={3}
+                            value={editingCommentDraft}
+                            onChange={(event) => setEditingCommentDraft(event.target.value)}
+                          />
+                          <div className="button-row">
+                            <button
+                              className="button button-secondary"
+                              type="button"
+                              disabled={isSavingComment}
+                              onClick={() => void saveEditedComment(comment.id)}
+                            >
+                              Save
+                            </button>
+                            <button className="button button-secondary" type="button" onClick={cancelEditingComment}>
+                              Cancel
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <p style={{ marginBottom: '0.45rem' }}>{comment.body}</p>
+                          <p className="muted" style={{ marginTop: 0 }}>
+                            Updated {new Date(comment.updatedAt).toLocaleString()}
+                          </p>
+                          <div className="button-row">
+                            <button
+                              className="button button-secondary"
+                              type="button"
+                              onClick={() => startEditingComment(comment)}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              className="button button-secondary"
+                              type="button"
+                              onClick={() => void toggleCommentResolution(comment)}
+                            >
+                              {comment.status === 'open' ? 'Resolve' : 'Reopen'}
+                            </button>
+                            <button
+                              className="button button-secondary"
+                              type="button"
+                              onClick={() => void removeComment(comment.id)}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </article>
+                  ))
+                )}
+
+                <label className="field">
+                  Add Comment
+                  <textarea
+                    rows={3}
+                    placeholder="Capture risk, tradeoff, or follow-up for this node."
+                    value={commentDraft}
+                    onChange={(event) => setCommentDraft(event.target.value)}
+                  />
+                </label>
+                <button
+                  className="button"
+                  type="button"
+                  disabled={isSavingComment || !selectedComponentId}
+                  onClick={() => void createComment()}
+                >
+                  {isSavingComment ? 'Saving...' : 'Post Comment'}
+                </button>
+              </div>
+            ) : null}
           </section>
         </div>
       </div>

@@ -189,3 +189,127 @@ Apply the redesign guidance from `docs/ui-redesign-prompts.md` across all target
 - Verification:
   - `npm --workspace @sdc/web run lint` passed
   - `npm --workspace @sdc/web run typecheck` passed
+
+---
+
+# Stage 10 Roadmap Planning (2026-02-28)
+
+## Scope
+Define GA-focused implementation backlog after Stage 9 completion, including team workflows, quality gates, release automation, and operational controls.
+
+## Plan
+- [x] 1. Define Stage 10 epics and outcomes
+- [x] 2. Break down Stage 10 into screen/API/platform tickets
+- [x] 3. Add acceptance criteria and execution dependencies
+- [x] 4. Prioritize ticket sequence into execution waves
+
+## Stage 10 Epics
+| Epic ID | Epic | Outcome |
+|---|---|---|
+| E10-1 | Collaboration and Access | Shared projects with role-scoped access and auditable collaboration events |
+| E10-2 | Quality Gates and Reliability | Stable E2E coverage and reduced regression/flicker risk |
+| E10-3 | Performance and Experience | Faster interaction and route responsiveness with budget enforcement |
+| E10-4 | Release Automation and Safety | Repeatable deploy/rollback with automated smoke checks |
+| E10-5 | Data Lifecycle and Compliance | Backup/restore confidence and retention governance |
+| E10-6 | Product Analytics and GA Readiness | Measurable activation/completion loops and GA sign-off controls |
+
+## Ticket Breakdown (Screen/API/Platform)
+| Ticket | Surface | Scope | Acceptance Criteria | Depends On | Priority |
+|---|---|---|---|---|---|
+| FE-101 | Dashboard | Add shared projects panel with member role badges and pending invites | Shared projects list loads from API, role badges render, empty state CTA visible, loading/error states covered | BE-101 | P0 |
+| FE-102 | Workspace | Add collaborator presence strip and edit-lock indicator for conflicting edits | Presence updates in near real-time, conflict lock appears/disappears without page reload, user sees clear recovery action | FE-101, BE-104 | P0 |
+| FE-103 | Workspace | Add node-level comments and mention chips | Users can add/edit/delete comments, comments attach to node IDs, unresolved count appears in workspace sidebar | BE-103 | P0 |
+| FE-104 | Grading Report | Add action-item assignment and status (`todo`, `in-progress`, `done`) | Action owner/status persists, filters by owner/status work, completion ratio appears in report summary | BE-105 | P1 |
+| FE-105 | Compare/Report | Add regression summary banner when candidate is worse than baseline | Banner appears only on negative rubric/KPI deltas, includes direct navigation to affected sections | FE-104 | P1 |
+| BE-101 | API | Membership model and endpoints (`POST /projects/:id/invites`, `PATCH /projects/:id/members/:memberId`, `DELETE /projects/:id/members/:memberId`) | Role checks enforced, invite lifecycle persisted, audit log entries created for each membership change | None | P0 |
+| BE-102 | API | Shared project listing endpoint (`GET /projects/shared`) | Returns only projects where user has membership, includes role + last activity, paginated response contract documented | BE-101 | P0 |
+| BE-103 | API | Comment endpoints (`GET/POST/PATCH/DELETE /projects/:id/versions/:id/comments`) | Comment CRUD works with authorization checks, comment history auditable, schema validated | BE-101 | P0 |
+| BE-104 | API/Realtime | Presence and optimistic conflict resolution channel (WebSocket or polling contract) | Presence heartbeat documented, stale sessions expire, conflicting updates return deterministic error payloads | BE-101 | P0 |
+| BE-105 | API | Grading action-item ownership/status endpoints | Item assignments are role-aware, status transitions validated, report payload includes ownership fields | BE-101 | P1 |
+| QA-101 | CI/Testing | Add full E2E suite for top journeys (auth, scenario, workspace autosave, simulate, grade, compare, export/share) | CI gate fails on E2E regression, flaky rate threshold defined (<2%), retry policy documented | FE-101..105, BE-101..105 | P0 |
+| QA-102 | Frontend Quality | Add visual regression checks for key pages (dashboard/workspace/results/report) | Snapshot baseline approved, diff failures block merge, update workflow documented | QA-101 | P1 |
+| OPS-101 | Performance | Define and enforce route budgets (LCP, INP, CLS, API latency SLOs) | Budgets published, alerts configured, failing budget blocks release candidate | QA-101 | P0 |
+| OPS-102 | Release | Build release pipeline with pre-deploy smoke + rollback script | One-command rollback validated in staging, smoke tests auto-run post deploy, deploy checklist linked in docs | OPS-101 | P0 |
+| OPS-103 | Data Lifecycle | Implement retention jobs + backup/restore drill automation | Retention jobs run on schedule, restore drill passes with evidence artifacts, runbook updated | OPS-102 | P1 |
+| OPS-104 | Product Analytics | GA readiness dashboard (activation, completion, regrade cadence, failure rate) | Dashboard available in Grafana/product analytics, weekly review template updated, go/no-go thresholds documented | OPS-101 | P1 |
+
+## Execution Waves
+1. Wave 10A (P0 Core): `BE-101`, `BE-102`, `BE-103`, `BE-104`, `FE-101`, `FE-102`, `FE-103`, `QA-101`.
+2. Wave 10B (Quality + Perf): `FE-104`, `FE-105`, `BE-105`, `QA-102`, `OPS-101`.
+3. Wave 10C (Release + GA Ops): `OPS-102`, `OPS-103`, `OPS-104`.
+
+## Review
+- Stage 10 roadmap and ticket backlog defined.
+- Ticket dependencies and priorities are ready for sprint planning.
+
+---
+
+# Stage 10 Execution (2026-02-28)
+
+## Scope
+Deliver Stage 10 GA productization features end-to-end:
+- collaboration model v1
+- node comment workflow
+- E2E/smoke quality gates
+- frontend performance telemetry + budget surfacing
+- release automation + rollback helper
+- data lifecycle + analytics scripts
+- public reliability status page
+- icon-based theme toggle
+
+## Plan
+- [x] 1. Add Stage 10 collaboration data model and shared contracts
+- [x] 2. Implement role-aware collaboration APIs (shared projects, members, invites, comments)
+- [x] 3. Update existing access controls to support owner/editor/viewer project access
+- [x] 4. Implement frontend collaboration surfaces (dashboard shared list, project member management, workspace comments/conflict lock)
+- [x] 5. Add icon-based landing page theme toggle
+- [x] 6. Add frontend performance monitor + telemetry ingestion endpoint
+- [x] 7. Add Stage 10 operational scripts (E2E, smoke, retention, analytics, rollback)
+- [x] 8. Add release automation workflow + GA operations doc + reliability page
+- [x] 9. Run full workspace verification and update trackers
+
+## Review
+- Completed collaboration model:
+  - Prisma models: `ProjectMember`, `ProjectInvite`, `VersionComment`
+  - migration: `apps/api/prisma/migrations/0008_stage10_collaboration_workflows/migration.sql`
+  - shared type contracts for collaboration + comments + frontend metrics
+- Completed collaboration APIs:
+  - `GET /projects/shared`
+  - `GET /projects/:id/members`
+  - `POST /projects/:id/invites`
+  - `POST /projects/invites/:inviteToken/accept`
+  - `PATCH/DELETE /projects/:id/members/:memberId`
+  - `GET/POST/PATCH/DELETE /projects/:id/versions/:versionId/comments...`
+- Completed role-scoped project access:
+  - owner/editor/viewer access checks in `ProjectsService`
+  - simulation/grading/report flows moved from owner-only checks to shared access checks
+  - optimistic autosave conflict lock support via `lastKnownUpdatedAt`
+- Completed frontend Stage 10 surfaces:
+  - Dashboard shared projects panel with role badges
+  - Project history member management + invite flow
+  - Workspace collaborator strip + node comments + conflict lock UX
+  - Landing page theme toggle now uses icon button (sun/moon SVG)
+  - Public reliability page at `/status`
+- Completed performance monitoring:
+  - web `PerformanceMonitor` captures route transitions + Web Vitals (`TTFB/FCP/LCP/CLS/INP`)
+  - API ingestion endpoint `POST /observability/frontend-metrics`
+  - metrics persisted via request telemetry pipeline
+- Completed GA operations assets:
+  - E2E journey script: `infra/scripts/stage10-e2e.mjs`
+  - smoke checks: `infra/scripts/stage10-smoke.mjs`
+  - retention job: `infra/scripts/stage10-retention.mjs`
+  - analytics summary: `infra/scripts/stage10-analytics-summary.mjs`
+  - rollback helper: `infra/scripts/stage10-rollback.sh`
+  - release workflow: `.github/workflows/release.yml`
+  - docs: `docs/stage10-ga-operations.md`
+  - root scripts added: `e2e:stage10`, `smoke:stage10`, `retention:stage10`, `analytics:stage10`
+
+### Verification
+- `npm --workspace @sdc/api run prisma:generate` passed
+- `npm run lint` passed (all workspaces)
+- `npm run typecheck` passed (all workspaces)
+- `npm run test` passed (all workspaces)
+- `node --check infra/scripts/stage10-e2e.mjs` passed
+- `node --check infra/scripts/stage10-smoke.mjs` passed
+- `node --check infra/scripts/stage10-retention.mjs` passed
+- `node --check infra/scripts/stage10-analytics-summary.mjs` passed

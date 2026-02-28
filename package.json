@@ -15,7 +15,11 @@
     "dev:web": "npm --workspace @sdc/web run dev",
     "dev:simulation-worker": "npm --workspace @sdc/simulation-worker run dev",
     "dev:grading-worker": "npm --workspace @sdc/grading-worker run dev",
-    "loadtest:stage9": "node infra/scripts/stage9-loadtest.mjs"
+    "loadtest:stage9": "node infra/scripts/stage9-loadtest.mjs",
+    "e2e:stage10": "node infra/scripts/stage10-e2e.mjs",
+    "smoke:stage10": "node infra/scripts/stage10-smoke.mjs",
+    "retention:stage10": "node infra/scripts/stage10-retention.mjs",
+    "analytics:stage10": "node infra/scripts/stage10-analytics-summary.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.23.0",

@@ -16,7 +16,12 @@ model User {
   targetCompanies     Json     @default("[]")
   level               String?
   scenarioPreferences Json     @default("[]")
-  projects            Project[]
+  projects            Project[]        @relation("ProjectOwner")
+  projectMemberships  ProjectMember[]  @relation("ProjectMemberUser")
+  sentProjectInvites  ProjectInvite[]  @relation("ProjectInviteSender")
+  acceptedProjectInvites ProjectInvite[] @relation("ProjectInviteAccepter")
+  memberInvitations   ProjectMember[]  @relation("ProjectMemberInviter")
+  versionComments     VersionComment[] @relation("VersionCommentAuthor")
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 }
@@ -41,12 +46,15 @@ model Project {
   userId       String
   scenarioId   String
   title        String
-  user         User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User                  @relation("ProjectOwner", fields: [userId], references: [id], onDelete: Cascade)
   scenario     Scenario              @relation(fields: [scenarioId], references: [id], onDelete: Restrict)
   versions     ArchitectureVersion[]
   runs         SimulationRun[]
   gradeReports GradeReport[]
   reportExports ReportExport[]
+  members      ProjectMember[]
+  invites      ProjectInvite[]
+  comments     VersionComment[]
   createdAt    DateTime              @default(now())
   updatedAt    DateTime              @updatedAt
 
@@ -67,6 +75,7 @@ model ArchitectureVersion {
   childVersions    ArchitectureVersion[] @relation("VersionParentChild")
   runs             SimulationRun[]
   gradeReports     GradeReport[]
+  comments         VersionComment[]
   baselineReportExports ReportExport[] @relation("ReportExportBaselineVersion")
   candidateReportExports ReportExport[] @relation("ReportExportCandidateVersion")
   createdAt        DateTime              @default(now())
@@ -74,6 +83,64 @@ model ArchitectureVersion {
 
   @@unique([projectId, versionNumber])
   @@index([projectId, createdAt])
+}
+
+model ProjectMember {
+  id          String   @id @default(uuid())
+  projectId   String
+  userId      String
+  role        String   @default("editor")
+  invitedById String?
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user        User     @relation("ProjectMemberUser", fields: [userId], references: [id], onDelete: Cascade)
+  invitedBy   User?    @relation("ProjectMemberInviter", fields: [invitedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([projectId, userId])
+  @@index([userId, createdAt])
+  @@index([projectId, role])
+}
+
+model ProjectInvite {
+  id           String   @id @default(uuid())
+  projectId    String
+  email        String
+  role         String   @default("editor")
+  status       String   @default("pending")
+  token        String   @unique
+  invitedById  String
+  acceptedById String?
+  acceptedAt   DateTime?
+  expiresAt    DateTime?
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  invitedBy    User     @relation("ProjectInviteSender", fields: [invitedById], references: [id], onDelete: Cascade)
+  acceptedBy   User?    @relation("ProjectInviteAccepter", fields: [acceptedById], references: [id], onDelete: SetNull)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([projectId, status, createdAt])
+  @@index([email, status, createdAt])
+}
+
+model VersionComment {
+  id             String               @id @default(uuid())
+  projectId      String
+  versionId      String
+  nodeId         String
+  authorId       String
+  body           String
+  status         String               @default("open")
+  mentionUserIds Json                 @default("[]")
+  project        Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  version        ArchitectureVersion  @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  author         User                 @relation("VersionCommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  @@index([projectId, versionId, createdAt])
+  @@index([versionId, nodeId, createdAt])
+  @@index([authorId, createdAt])
 }
 
 model ReportExport {

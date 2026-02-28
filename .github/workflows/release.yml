@@ -1,0 +1,56 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag/version (for traceability)"
+        required: true
+        type: string
+      rollback_tag:
+        description: "Previous stable tag used for rollback"
+        required: true
+        type: string
+
+jobs:
+  release-gate:
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ inputs.release_tag }}
+      ROLLBACK_TAG: ${{ inputs.rollback_tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm run test
+
+      - name: Build
+        run: npm run build
+
+      - name: Stage 10 smoke checks
+        run: node infra/scripts/stage10-smoke.mjs
+        env:
+          STAGE10_SMOKE_API_URL: ${{ secrets.STAGE10_SMOKE_API_URL || 'http://localhost:3001' }}
+          STAGE10_SMOKE_WEB_URL: ${{ secrets.STAGE10_SMOKE_WEB_URL || 'http://localhost:3000' }}
+
+      - name: Release notes summary
+        run: |
+          echo "Release gate passed for ${RELEASE_TAG}."
+          echo "Rollback target: ${ROLLBACK_TAG}"
+          echo "If deployment health regresses, execute infra/scripts/stage10-rollback.sh with ROLLBACK_IMAGE_TAG=${ROLLBACK_TAG}."

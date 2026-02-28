@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Public_Sans, Space_Grotesk } from 'next/font/google';
+import { PerformanceMonitor } from '@/components/performance-monitor';
 import './globals.css';
 
 const bodyFont = Public_Sans({
@@ -22,7 +23,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className={`${bodyFont.variable} ${displayFont.variable}`}>{children}</body>
+      <body className={`${bodyFont.variable} ${displayFont.variable}`}>
+        <PerformanceMonitor />
+        {children}
+      </body>
     </html>
   );
 }

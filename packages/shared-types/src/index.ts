@@ -164,6 +164,74 @@ export const projectSummarySchema = z.object({
   updatedAt: z.string()
 });
 
+export const projectAccessRoleSchema = z.enum(['owner', 'editor', 'viewer']);
+
+export const projectMemberRoleSchema = z.enum(['editor', 'viewer']);
+
+export const projectInviteStatusSchema = z.enum(['pending', 'accepted', 'revoked', 'expired']);
+
+export const projectOwnerSchema = z.object({
+  userId: z.string().uuid(),
+  email: z.string().email(),
+  role: z.literal('owner')
+});
+
+export const projectMemberSchema = z.object({
+  id: z.string().uuid(),
+  projectId: z.string().uuid(),
+  userId: z.string().uuid(),
+  email: z.string().email(),
+  role: projectMemberRoleSchema,
+  invitedById: z.string().uuid().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string()
+});
+
+export const projectInviteSchema = z.object({
+  id: z.string().uuid(),
+  projectId: z.string().uuid(),
+  email: z.string().email(),
+  role: projectMemberRoleSchema,
+  status: projectInviteStatusSchema,
+  token: z.string().min(16).max(128),
+  invitedById: z.string().uuid(),
+  acceptedById: z.string().uuid().nullable(),
+  acceptedAt: z.string().nullable(),
+  expiresAt: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string()
+});
+
+export const projectMembersResponseSchema = z.object({
+  owner: projectOwnerSchema,
+  members: z.array(projectMemberSchema),
+  invites: z.array(projectInviteSchema)
+});
+
+export const createProjectInviteRequestSchema = z.object({
+  email: z.string().email(),
+  role: projectMemberRoleSchema.optional()
+});
+
+export const updateProjectMemberRequestSchema = z.object({
+  role: projectMemberRoleSchema
+});
+
+export const sharedProjectSummarySchema = projectSummarySchema.extend({
+  accessRole: projectAccessRoleSchema,
+  ownerEmail: z.string().email(),
+  pendingInviteCount: z.number().int().nonnegative()
+});
+
+export const sharedProjectsResponseSchema = z.object({
+  projects: z.array(sharedProjectSummarySchema)
+});
+
+export const acceptProjectInviteResponseSchema = z.object({
+  projectId: z.string().uuid(),
+  role: projectAccessRoleSchema
+});
+
 export const projectHistoryResponseSchema = z.object({
   project: projectSummarySchema,
   versions: z.array(projectVersionSummarySchema)
@@ -180,8 +248,44 @@ export const updateVersionRequestSchema = z.object({
   components: z.array(architectureComponentSchema),
   edges: z.array(architectureEdgeSchema),
   notes: z.string().max(500).nullable().optional(),
-  trafficProfile: trafficProfileSchema.optional()
+  trafficProfile: trafficProfileSchema.optional(),
+  lastKnownUpdatedAt: z.string().min(1).optional()
 });
+
+export const commentStatusSchema = z.enum(['open', 'resolved']);
+
+export const versionCommentSchema = z.object({
+  id: z.string().uuid(),
+  projectId: z.string().uuid(),
+  versionId: z.string().uuid(),
+  nodeId: z.string().min(1).max(120),
+  authorId: z.string().uuid(),
+  authorEmail: z.string().email(),
+  body: z.string().min(1).max(2000),
+  mentionUserIds: z.array(z.string().uuid()),
+  status: commentStatusSchema,
+  createdAt: z.string(),
+  updatedAt: z.string()
+});
+
+export const listVersionCommentsResponseSchema = z.object({
+  comments: z.array(versionCommentSchema)
+});
+
+export const createVersionCommentRequestSchema = z.object({
+  nodeId: z.string().min(1).max(120),
+  body: z.string().min(1).max(2000),
+  mentionUserIds: z.array(z.string().uuid()).max(20).optional()
+});
+
+export const updateVersionCommentRequestSchema = z
+  .object({
+    body: z.string().min(1).max(2000).optional(),
+    status: commentStatusSchema.optional()
+  })
+  .refine((value) => value.body !== undefined || value.status !== undefined, {
+    message: 'At least one field must be provided.'
+  });
 
 export const updateTrafficProfileRequestSchema = z.object({
   trafficProfile: trafficProfileSchema
@@ -556,6 +660,29 @@ export const sharedReportResponseSchema = z.object({
   report: projectReportSchema
 });
 
+export const frontendMetricNameSchema = z.enum([
+  'LCP',
+  'INP',
+  'CLS',
+  'TTFB',
+  'FCP',
+  'route-change'
+]);
+
+export const frontendMetricRatingSchema = z.enum(['good', 'needs-improvement', 'poor']);
+
+export const frontendMetricSchema = z.object({
+  name: frontendMetricNameSchema,
+  value: z.number().nonnegative(),
+  path: z.string().min(1),
+  rating: frontendMetricRatingSchema.optional(),
+  navigationType: z.string().optional()
+});
+
+export const frontendMetricRequestSchema = z.object({
+  metric: frontendMetricSchema
+});
+
 export const createProjectResponseSchema = z.object({
   project: projectSummarySchema,
   initialVersion: projectVersionSummarySchema
@@ -570,6 +697,18 @@ export type CreateProjectRequest = z.infer<typeof createProjectRequestSchema>;
 export type CreateVersionRequest = z.infer<typeof createVersionRequestSchema>;
 export type ProjectVersionSummary = z.infer<typeof projectVersionSummarySchema>;
 export type ProjectSummary = z.infer<typeof projectSummarySchema>;
+export type ProjectAccessRole = z.infer<typeof projectAccessRoleSchema>;
+export type ProjectMemberRole = z.infer<typeof projectMemberRoleSchema>;
+export type ProjectInviteStatus = z.infer<typeof projectInviteStatusSchema>;
+export type ProjectOwner = z.infer<typeof projectOwnerSchema>;
+export type ProjectMember = z.infer<typeof projectMemberSchema>;
+export type ProjectInvite = z.infer<typeof projectInviteSchema>;
+export type ProjectMembersResponse = z.infer<typeof projectMembersResponseSchema>;
+export type CreateProjectInviteRequest = z.infer<typeof createProjectInviteRequestSchema>;
+export type UpdateProjectMemberRequest = z.infer<typeof updateProjectMemberRequestSchema>;
+export type SharedProjectSummary = z.infer<typeof sharedProjectSummarySchema>;
+export type SharedProjectsResponse = z.infer<typeof sharedProjectsResponseSchema>;
+export type AcceptProjectInviteResponse = z.infer<typeof acceptProjectInviteResponseSchema>;
 export type ProjectHistoryResponse = z.infer<typeof projectHistoryResponseSchema>;
 export type CreateProjectResponse = z.infer<typeof createProjectResponseSchema>;
 export type ComponentType = z.infer<typeof componentTypeSchema>;
@@ -578,6 +717,11 @@ export type ArchitectureEdge = z.infer<typeof architectureEdgeSchema>;
 export type TopologyWarning = z.infer<typeof topologyWarningSchema>;
 export type VersionDetail = z.infer<typeof versionDetailSchema>;
 export type UpdateVersionRequest = z.infer<typeof updateVersionRequestSchema>;
+export type CommentStatus = z.infer<typeof commentStatusSchema>;
+export type VersionComment = z.infer<typeof versionCommentSchema>;
+export type ListVersionCommentsResponse = z.infer<typeof listVersionCommentsResponseSchema>;
+export type CreateVersionCommentRequest = z.infer<typeof createVersionCommentRequestSchema>;
+export type UpdateVersionCommentRequest = z.infer<typeof updateVersionCommentRequestSchema>;
 export type TrafficProfile = z.infer<typeof trafficProfileSchema>;
 export type UpdateTrafficProfileRequest = z.infer<typeof updateTrafficProfileRequestSchema>;
 export type VersionTrafficProfileResponse = z.infer<typeof versionTrafficProfileResponseSchema>;
@@ -625,6 +769,10 @@ export type ReportExportResponse = z.infer<typeof reportExportResponseSchema>;
 export type CreateReportShareRequest = z.infer<typeof createReportShareRequestSchema>;
 export type ReportShareResponse = z.infer<typeof reportShareResponseSchema>;
 export type SharedReportResponse = z.infer<typeof sharedReportResponseSchema>;
+export type FrontendMetricName = z.infer<typeof frontendMetricNameSchema>;
+export type FrontendMetricRating = z.infer<typeof frontendMetricRatingSchema>;
+export type FrontendMetric = z.infer<typeof frontendMetricSchema>;
+export type FrontendMetricRequest = z.infer<typeof frontendMetricRequestSchema>;
 
 export const trafficProfilePresets = {
   'interview-default': {

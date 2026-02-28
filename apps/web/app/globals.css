@@ -507,9 +507,17 @@ html[data-theme='dark'] .landing-nav {
   background: var(--surface-strong);
   color: var(--ink);
   border-radius: 999px;
-  min-height: 2rem;
-  padding: 0.35rem 0.7rem;
+  width: 2.2rem;
+  min-height: 2.2rem;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
   cursor: pointer;
+}
+
+.theme-toggle svg {
+  width: 1.1rem;
+  height: 1.1rem;
 }
 
 .landing-hero-grid {
@@ -942,6 +950,13 @@ html[data-theme='dark'] .landing-nav {
   margin-top: 0.72rem;
 }
 
+.collaboration-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.55rem;
+}
+
 .zoom-indicator {
   min-width: 72px;
   text-align: center;
@@ -1116,6 +1131,18 @@ html[data-theme='dark'] .canvas-node {
 .warning-list {
   display: grid;
   gap: 0.45rem;
+}
+
+.comment-thread {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.comment-item {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.55rem 0.65rem;
+  background: var(--surface-strong);
 }
 
 .warning-item,

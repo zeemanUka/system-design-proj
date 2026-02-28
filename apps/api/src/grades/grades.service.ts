@@ -1,4 +1,4 @@
-import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import {
   GradeReport,
@@ -8,15 +8,11 @@ import {
   gradeReportStatusSchema
 } from '@sdc/shared-types';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { ProjectsService } from '../projects/projects.service.js';
 import { GradingQueueService } from './grading-queue.service.js';
 
 type GradeReportRecord = Prisma.GradeReportGetPayload<{
   include: {
-    project: {
-      select: {
-        userId: true;
-      };
-    };
     feedbackItems: true;
   };
 }>;
@@ -25,19 +21,17 @@ type GradeReportRecord = Prisma.GradeReportGetPayload<{
 export class GradesService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(ProjectsService) private readonly projectsService: ProjectsService,
     @Inject(GradingQueueService) private readonly gradingQueue: GradingQueueService
   ) {}
 
   async queueGradeReport(userId: string, versionId: string): Promise<GradeReportResponse> {
-    const version = await this.prisma.architectureVersion.findUnique({
+    const access = await this.projectsService.assertVersionEditAccess(userId, versionId);
+
+    const version = await this.prisma.architectureVersion.findFirst({
       where: { id: versionId },
-      include: {
-        project: {
-          select: {
-            id: true,
-            userId: true
-          }
-        }
+      select: {
+        id: true
       }
     });
 
@@ -45,22 +39,13 @@ export class GradesService {
       throw new NotFoundException('Version not found.');
     }
 
-    if (version.project.userId !== userId) {
-      throw new ForbiddenException('You do not have access to this version.');
-    }
-
     const createdReport = await this.prisma.gradeReport.create({
       data: {
-        projectId: version.projectId,
+        projectId: access.projectId,
         versionId: version.id,
         status: 'pending'
       },
       include: {
-        project: {
-          select: {
-            userId: true
-          }
-        },
         feedbackItems: true
       }
     });
@@ -76,11 +61,6 @@ export class GradesService {
           completedAt: new Date()
         },
         include: {
-          project: {
-            select: {
-              userId: true
-            }
-          },
           feedbackItems: true
         }
       });
@@ -101,11 +81,6 @@ export class GradesService {
         id: gradeReportId
       },
       include: {
-        project: {
-          select: {
-            userId: true
-          }
-        },
         feedbackItems: {
           orderBy: {
             createdAt: 'asc'
@@ -118,9 +93,7 @@ export class GradesService {
       throw new NotFoundException('Grade report not found.');
     }
 
-    if (report.project.userId !== userId) {
-      throw new ForbiddenException('You do not have access to this report.');
-    }
+    await this.projectsService.assertProjectViewAccess(userId, report.projectId);
 
     return {
       report: this.toGradeReport(report)

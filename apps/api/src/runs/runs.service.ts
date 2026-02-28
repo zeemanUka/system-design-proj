@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { applyFailureInjection } from '@sdc/simulation-core';
 import {
@@ -21,6 +21,7 @@ import {
   trafficProfileSchema
 } from '@sdc/shared-types';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { ProjectsService } from '../projects/projects.service.js';
 import { SimulationQueueService } from './simulation-queue.service.js';
 
 type SimulationRunRecord = Prisma.SimulationRunGetPayload<{
@@ -30,11 +31,6 @@ type SimulationRunRecord = Prisma.SimulationRunGetPayload<{
         sequence: 'asc';
       };
     };
-    project: {
-      select: {
-        userId: true;
-      };
-    };
   };
 }>;
 
@@ -42,28 +38,26 @@ type SimulationRunRecord = Prisma.SimulationRunGetPayload<{
 export class RunsService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(ProjectsService) private readonly projectsService: ProjectsService,
     @Inject(SimulationQueueService) private readonly simulationQueue: SimulationQueueService
   ) {}
 
   async queueSimulationRun(userId: string, versionId: string): Promise<SimulationRunResponse> {
-    const version = await this.prisma.architectureVersion.findUnique({
+    const access = await this.projectsService.assertVersionEditAccess(userId, versionId);
+
+    const version = await this.prisma.architectureVersion.findFirst({
       where: { id: versionId },
-      include: {
-        project: {
-          select: {
-            id: true,
-            userId: true
-          }
-        }
+      select: {
+        id: true,
+        projectId: true,
+        components: true,
+        edges: true,
+        trafficProfile: true
       }
     });
 
     if (!version) {
       throw new NotFoundException('Version not found.');
-    }
-
-    if (version.project.userId !== userId) {
-      throw new ForbiddenException('You do not have access to this version.');
     }
 
     const inputContract = simulationInputContractSchema.parse({
@@ -74,7 +68,7 @@ export class RunsService {
 
     const createdRun = await this.prisma.simulationRun.create({
       data: {
-        projectId: version.projectId,
+        projectId: access.projectId,
         versionId: version.id,
         status: 'pending',
         inputContract: inputContract as unknown as Prisma.InputJsonValue,
@@ -94,11 +88,6 @@ export class RunsService {
         events: {
           orderBy: {
             sequence: 'asc'
-          }
-        },
-        project: {
-          select: {
-            userId: true
           }
         }
       }
@@ -129,11 +118,6 @@ export class RunsService {
             orderBy: {
               sequence: 'asc'
             }
-          },
-          project: {
-            select: {
-              userId: true
-            }
           }
         }
       });
@@ -156,11 +140,6 @@ export class RunsService {
           orderBy: {
             sequence: 'asc'
           }
-        },
-        project: {
-          select: {
-            userId: true
-          }
         }
       }
     });
@@ -169,9 +148,7 @@ export class RunsService {
       throw new NotFoundException('Simulation run not found.');
     }
 
-    if (run.project.userId !== userId) {
-      throw new ForbiddenException('You do not have access to this run.');
-    }
+    await this.projectsService.assertProjectViewAccess(userId, run.projectId);
 
     return {
       run: this.toSimulationRun(run)
@@ -190,11 +167,6 @@ export class RunsService {
           orderBy: {
             sequence: 'asc'
           }
-        },
-        project: {
-          select: {
-            userId: true
-          }
         }
       }
     });
@@ -203,9 +175,7 @@ export class RunsService {
       throw new NotFoundException('Baseline simulation run not found.');
     }
 
-    if (baselineRun.project.userId !== userId) {
-      throw new ForbiddenException('You do not have access to this run.');
-    }
+    await this.projectsService.assertProjectEditAccess(userId, baselineRun.projectId);
 
     if (baselineRun.status !== 'completed') {
       throw new BadRequestException('Baseline run must be completed before failure injection.');
@@ -264,11 +234,6 @@ export class RunsService {
           orderBy: {
             sequence: 'asc'
           }
-        },
-        project: {
-          select: {
-            userId: true
-          }
         }
       }
     });
@@ -297,11 +262,6 @@ export class RunsService {
           events: {
             orderBy: {
               sequence: 'asc'
-            }
-          },
-          project: {
-            select: {
-              userId: true
             }
           }
         }

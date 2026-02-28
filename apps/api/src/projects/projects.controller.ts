@@ -2,24 +2,29 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Inject,
   Param,
   Patch,
   Post,
-  Res,
   Query,
   Req,
+  Res,
   UnauthorizedException,
   UseGuards
 } from '@nestjs/common';
 import {
   compareVersionsQuerySchema,
+  createProjectInviteRequestSchema,
   createReportExportRequestSchema,
   createReportShareRequestSchema,
   createProjectRequestSchema,
+  createVersionCommentRequestSchema,
   createVersionRequestSchema,
+  updateProjectMemberRequestSchema,
   updateTrafficProfileRequestSchema,
+  updateVersionCommentRequestSchema,
   updateVersionRequestSchema
 } from '@sdc/shared-types';
 import { FastifyReply } from 'fastify';
@@ -53,6 +58,17 @@ export class ProjectsController {
     return this.projectsService.listProjects(userId, limit);
   }
 
+  @Get('shared')
+  async listSharedProjects(@Req() request: RequestWithUser, @Query('limit') limitRaw?: string) {
+    const userId = request.user?.sub;
+    if (!userId) {
+      throw new UnauthorizedException('Missing user identity.');
+    }
+
+    const limit = parsePositiveIntQuery('limit', limitRaw, 1, 50) ?? 20;
+    return this.projectsService.listSharedProjects(userId, limit);
+  }
+
   @Post()
   async createProject(@Req() request: RequestWithUser, @Body() body: unknown) {
     const userId = request.user?.sub;
@@ -66,6 +82,92 @@ export class ProjectsController {
     }
 
     return this.projectsService.createProject(userId, parsed.data);
+  }
+
+  @Post('invites/:inviteToken/accept')
+  async acceptProjectInvite(@Req() request: RequestWithUser, @Param('inviteToken') inviteToken: string) {
+    const userId = request.user?.sub;
+    if (!userId) {
+      throw new UnauthorizedException('Missing user identity.');
+    }
+
+    return this.projectsService.acceptProjectInvite(userId, parseShareTokenParam('inviteToken', inviteToken));
+  }
+
+  @Get(':id/members')
+  async listProjectMembers(@Req() request: RequestWithUser, @Param('id') projectId: string) {
+    const userId = request.user?.sub;
+    if (!userId) {
+      throw new UnauthorizedException('Missing user identity.');
+    }
+
+    return this.projectsService.listProjectMembers(userId, parseUuidParam('projectId', projectId));
+  }
+
+  @Post(':id/invites')
+  async createProjectInvite(
+    @Req() request: RequestWithUser,
+    @Param('id') projectId: string,
+    @Body() body: unknown
+  ) {
+    const userId = request.user?.sub;
+    if (!userId) {
+      throw new UnauthorizedException('Missing user identity.');
+    }
+
+    const parsed = createProjectInviteRequestSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+
+    return this.projectsService.createProjectInvite(
+      userId,
+      parseUuidParam('projectId', projectId),
+      parsed.data
+    );
+  }
+
+  @Patch(':id/members/:memberId')
+  async updateProjectMemberRole(
+    @Req() request: RequestWithUser,
+    @Param('id') projectId: string,
+    @Param('memberId') memberId: string,
+    @Body() body: unknown
+  ) {
+    const userId = request.user?.sub;
+    if (!userId) {
+      throw new UnauthorizedException('Missing user identity.');
+    }
+
+    const parsed = updateProjectMemberRequestSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+
+    return this.projectsService.updateProjectMemberRole(
+      userId,
+      parseUuidParam('projectId', projectId),
+      parseUuidParam('memberId', memberId),
+      parsed.data
+    );
+  }
+
+  @Delete(':id/members/:memberId')
+  async removeProjectMember(
+    @Req() request: RequestWithUser,
+    @Param('id') projectId: string,
+    @Param('memberId') memberId: string
+  ) {
+    const userId = request.user?.sub;
+    if (!userId) {
+      throw new UnauthorizedException('Missing user identity.');
+    }
+
+    return this.projectsService.removeProjectMember(
+      userId,
+      parseUuidParam('projectId', projectId),
+      parseUuidParam('memberId', memberId)
+    );
   }
 
   @Post(':id/versions')
@@ -137,6 +239,98 @@ export class ProjectsController {
       parseUuidParam('projectId', projectId),
       parseUuidParam('versionId', versionId),
       parsed.data
+    );
+  }
+
+  @Get(':id/versions/:versionId/comments')
+  async listVersionComments(
+    @Req() request: RequestWithUser,
+    @Param('id') projectId: string,
+    @Param('versionId') versionId: string,
+    @Query('nodeId') nodeId?: string
+  ) {
+    const userId = request.user?.sub;
+    if (!userId) {
+      throw new UnauthorizedException('Missing user identity.');
+    }
+
+    return this.projectsService.listVersionComments(
+      userId,
+      parseUuidParam('projectId', projectId),
+      parseUuidParam('versionId', versionId),
+      nodeId?.trim() || undefined
+    );
+  }
+
+  @Post(':id/versions/:versionId/comments')
+  async createVersionComment(
+    @Req() request: RequestWithUser,
+    @Param('id') projectId: string,
+    @Param('versionId') versionId: string,
+    @Body() body: unknown
+  ) {
+    const userId = request.user?.sub;
+    if (!userId) {
+      throw new UnauthorizedException('Missing user identity.');
+    }
+
+    const parsed = createVersionCommentRequestSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+
+    return this.projectsService.createVersionComment(
+      userId,
+      parseUuidParam('projectId', projectId),
+      parseUuidParam('versionId', versionId),
+      parsed.data
+    );
+  }
+
+  @Patch(':id/versions/:versionId/comments/:commentId')
+  async updateVersionComment(
+    @Req() request: RequestWithUser,
+    @Param('id') projectId: string,
+    @Param('versionId') versionId: string,
+    @Param('commentId') commentId: string,
+    @Body() body: unknown
+  ) {
+    const userId = request.user?.sub;
+    if (!userId) {
+      throw new UnauthorizedException('Missing user identity.');
+    }
+
+    const parsed = updateVersionCommentRequestSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+
+    return this.projectsService.updateVersionComment(
+      userId,
+      parseUuidParam('projectId', projectId),
+      parseUuidParam('versionId', versionId),
+      parseUuidParam('commentId', commentId),
+      parsed.data
+    );
+  }
+
+  @Delete(':id/versions/:versionId/comments/:commentId')
+  async deleteVersionComment(
+    @Req() request: RequestWithUser,
+    @Param('id') projectId: string,
+    @Param('versionId') versionId: string,
+    @Param('commentId') commentId: string
+  ) {
+    const userId = request.user?.sub;
+    if (!userId) {
+      throw new UnauthorizedException('Missing user identity.');
+    }
+
+    return this.projectsService.deleteVersionComment(
+      userId,
+      parseUuidParam('projectId', projectId),
+      parseUuidParam('versionId', versionId),
+      parseUuidParam('commentId', commentId)
     );
   }
 

@@ -11,6 +11,7 @@ Interactive system design practice platform where users build architectures, run
 - Deterministic grading plus configurable AI feedback provider
 - Version compare, final report generation, PDF export, and share links
 - Stage 9 hardening: rate limits, secure headers, telemetry, runbooks
+- Stage 10 collaboration + GA ops: shared projects, invites, node comments, performance telemetry, release scripts
 
 ## Architecture
 - `apps/web`: Next.js frontend (`http://localhost:3000`)
@@ -100,6 +101,10 @@ npm run typecheck
 npm run test
 npm run build
 npm run loadtest:stage9
+npm run e2e:stage10
+npm run smoke:stage10
+npm run retention:stage10
+npm run analytics:stage10
 ```
 
 ## Production-Like Start (Built Artifacts)
@@ -149,6 +154,10 @@ docker compose -f infra/docker/docker-compose.yml up -d
 - top slow endpoints
 - recent audit events
 - mutating requests/minute
+- frontend metric ingestion (`FRONTEND` request telemetry records)
+
+## Reliability Status Page
+- Open `http://localhost:3000/status` for customer-facing service status checks and incident update template.
 
 ## Troubleshooting
 - Simulation/grade jobs stay pending:
@@ -170,3 +179,4 @@ docker compose -f infra/docker/docker-compose.yml up -d
 - `docs/incident-response.md`
 - `docs/authz-review-matrix.md`
 - `docs/beta-readiness.md`
+- `docs/stage10-ga-operations.md`

@@ -1,6 +1,6 @@
 'use client';
 
-import { ProjectSummary, UserProfile } from '@sdc/shared-types';
+import { ProjectSummary, SharedProjectSummary, SharedProjectsResponse, UserProfile } from '@sdc/shared-types';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
@@ -41,6 +41,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
+  const [sharedProjects, setSharedProjects] = useState<SharedProjectSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -52,7 +53,7 @@ export default function DashboardPage() {
 
     void (async () => {
       try {
-        const [profileResponse, projectsResponse] = await Promise.all([
+        const [profileResponse, projectsResponse, sharedProjectsResponse] = await Promise.all([
           fetch(`${API_BASE_URL}/users/me`, {
             headers: {
               Authorization: `Bearer ${token}`
@@ -62,11 +63,20 @@ export default function DashboardPage() {
             headers: {
               Authorization: `Bearer ${token}`
             }
+          }),
+          fetch(`${API_BASE_URL}/projects/shared?limit=10`, {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
           })
         ]);
 
-        if (!profileResponse.ok || !projectsResponse.ok) {
-          if (profileResponse.status === 401 || projectsResponse.status === 401) {
+        if (!profileResponse.ok || !projectsResponse.ok || !sharedProjectsResponse.ok) {
+          if (
+            profileResponse.status === 401 ||
+            projectsResponse.status === 401 ||
+            sharedProjectsResponse.status === 401
+          ) {
             clearAuthToken();
             router.replace('/auth');
             return;
@@ -78,9 +88,11 @@ export default function DashboardPage() {
 
         const profileData = (await profileResponse.json()) as UserProfile;
         const projectsData = (await projectsResponse.json()) as ProjectSummary[];
+        const sharedProjectsData = (await sharedProjectsResponse.json()) as SharedProjectsResponse;
 
         setProfile(profileData);
         setProjects(projectsData);
+        setSharedProjects(sharedProjectsData.projects);
       } catch {
         setError('Unable to reach server.');
       }
@@ -90,6 +102,9 @@ export default function DashboardPage() {
   const sortedProjects = useMemo(() => {
     return [...projects].sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt));
   }, [projects]);
+  const sortedSharedProjects = useMemo(() => {
+    return [...sharedProjects].sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt));
+  }, [sharedProjects]);
 
   const totalAttempts = useMemo(() => projects.reduce((sum, project) => sum + project.versionCount, 0), [projects]);
   const averageVersions = projects.length > 0 ? Math.round(totalAttempts / projects.length) : 0;
@@ -319,6 +334,49 @@ export default function DashboardPage() {
                   </article>
                 );
               })}
+            </div>
+          )}
+        </section>
+
+        <section className="card">
+          <div className="split-row">
+            <div>
+              <p className="kicker">Shared With You</p>
+              <h2>Collaborative projects</h2>
+            </div>
+            <span className="pill">{sortedSharedProjects.length} shared</span>
+          </div>
+
+          {sortedSharedProjects.length === 0 ? (
+            <p className="muted">No shared projects yet. Ask a teammate to invite you by email.</p>
+          ) : (
+            <div className="list-grid">
+              {sortedSharedProjects.map((project, index) => (
+                <article key={project.id} className="list-item" style={{ animationDelay: `${index * 65}ms` }}>
+                  <div className="list-item-header">
+                    <div>
+                      <h3 style={{ marginBottom: 0 }}>{project.title}</h3>
+                      <p className="muted" style={{ marginTop: '0.25rem', marginBottom: 0 }}>
+                        Owner: {project.ownerEmail}
+                      </p>
+                    </div>
+                    <span className={`pill ${project.accessRole === 'editor' ? 'pill-warning' : ''}`}>
+                      {project.accessRole}
+                    </span>
+                  </div>
+                  <p className="muted" style={{ marginTop: '0.45rem', marginBottom: '0.65rem' }}>
+                    {project.scenarioTitle} • v{project.latestVersionNumber} • Pending invites: {project.pendingInviteCount}
+                  </p>
+                  <div className="button-row">
+                    <Link className="button button-secondary" href={`/projects/${project.id}`}>
+                      Open Shared Project
+                    </Link>
+                    <Link className="button button-secondary" href={`/projects/${project.id}/compare`}>
+                      Compare
+                    </Link>
+                  </div>
+                </article>
+              ))}
             </div>
           )}
         </section>
